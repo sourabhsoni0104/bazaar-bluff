@@ -1,0 +1,21 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const base=process.env.BASE_URL||'http://localhost:3000';
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/Users/parshant/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell'});
+const context=await browser.newContext({viewport:{width:1440,height:1000}});const p=await context.newPage();let errors=[];p.on('pageerror',e=>errors.push(e.message));
+try{
+await p.goto(base);await p.waitForSelector('.hero');await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:'desktop-preview.png',fullPage:true});
+await p.getByRole('button',{name:'Explore a demo round'}).click();await p.waitForURL('**/team');await p.getByRole('button',{name:'Next phase'}).click();await p.getByRole('button',{name:'Equal split',exact:true}).waitFor();await p.getByRole('button',{name:'Equal split',exact:true}).click();await p.locator('#num-0').fill('101');await p.locator('#num-1').fill('99');await p.waitForTimeout(1400);assert.equal(await p.evaluate(()=>document.activeElement.id),'num-1');assert.equal(await p.locator('#num-1').inputValue(),'99');console.log('PASS: live updates preserve focused team inputs');await p.getByRole('button',{name:'Lock in proposal'}).click();await p.getByRole('button',{name:'Unlock & edit'}).waitFor();
+console.log('PASS: demo entry, equal split, validated lock');
+await p.getByRole('button',{name:'Next phase'}).click();await p.locator('[data-vote]').first().waitFor();for(let i=0;i<4;i++)await p.locator(`[data-vote="${i}"][data-value="true"]`).click();await p.getByRole('button',{name:'Lock in your votes'}).click();await p.getByRole('button',{name:'Unlock & edit'}).waitFor();
+await p.getByRole('button',{name:'Next phase'}).click();await p.getByText('The verdict is in.').waitFor();console.log('PASS: anonymous voting and results');
+await p.getByRole('button',{name:'Next phase'}).click();await p.getByRole('button',{name:'Spread evenly',exact:true}).waitFor();await p.getByRole('button',{name:'Spread evenly',exact:true}).click();await p.getByRole('button',{name:'Lock in deployment'}).click();await p.getByRole('button',{name:'Unlock & edit'}).waitFor();
+await p.setViewportSize({width:360,height:800});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:'team-preview.png',fullPage:true});
+await p.getByRole('button',{name:'Next phase'}).click();await p.getByText('The spoils of war').waitFor();console.log('PASS: troop deployment and battle reveal at 360px');
+await p.goto(base+'/rules');await p.getByRole('heading',{name:'How to play',exact:true}).waitFor();assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+await p.goto(base+'/display');await p.waitForSelector('.display-clock');assert.equal(await p.locator('input').count(),0);console.log('PASS: rules and read-only projector');
+await p.goto(base);await p.waitForSelector('.hero');await p.setViewportSize({width:390,height:844});await p.screenshot({path:'mobile-preview.png',fullPage:true});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+const adminPage=await browser.newPage({viewport:{width:1440,height:1000}});adminPage.on('pageerror',e=>errors.push(e.message));await adminPage.goto(base);await adminPage.locator('[data-action="admin"]').click();let pass=process.env.QA_ADMIN_PASSWORD||fs.readFileSync('.env','utf8').match(/ADMIN_PASSWORD=(.+)/)[1];await adminPage.locator('input[name="password"]').fill(pass);await adminPage.locator('#admin-form button').click();await adminPage.locator('a[data-page="settings"]').waitFor();await adminPage.goto(base+'/settings');await adminPage.getByText('Set the stakes.').waitFor();console.log('PASS: authenticated organiser settings');
+await p.emulateMedia({reducedMotion:'reduce'});assert.equal(await p.locator('canvas').count(),0);console.log('PASS: gameplay has no continuous canvas/WebGL renderer');assert.deepEqual(errors,[]);console.log('PASS: no browser JavaScript errors; no phone overflow');
+}finally{await browser.close();}

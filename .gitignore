@@ -1,0 +1,16 @@
+node_modules/
+.env
+state.json*
+test-results/
+
+*.dump
+*.sql.gz
+backups/
+.env.*
+!.env.example
+.DS_Store
+/*.png
+/*.jpg
+docs/redesign-backup/
+docs/artwork-originals/
+playwright-report/

@@ -1,0 +1,7 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {settleMarket,rankScores,addFractions,decimalValue,validQuantity} from '../backend/jinnfire-rules.mjs';
+test('Jinnfire example A: 33 supply, 7.90 rate, 63.20 for eight phials',()=>{let r=settleMarket([8,10,6,9],30);assert.equal(r.supply,33);assert.equal(decimalValue(r.rate),7.9);assert.equal(decimalValue(r.profits[0]),63.2);assert.equal(decimalValue(r.profits[1]),79);});
+test('Jinnfire example B: oversupply makes a real negative profit',()=>{let r=settleMarket([8,15,15,7],25);assert.equal(r.supply,45);assert.equal(decimalValue(r.rate),-12.4);assert.equal(decimalValue(r.profits[0]),-99.2);});
+test('zero production scores zero, not theoretical rate',()=>{let r=settleMarket([0,0,0],30);assert.equal(decimalValue(r.rate),20);assert.ok(r.profits.every(p=>decimalValue(p)===0));});
+test('only integers 0–15 accepted and invalid demand rejected',()=>{for(let q of [0,1,15])assert.equal(validQuantity(q),true);for(let q of [-1,16,2.5,'3',null,NaN])assert.equal(validQuantity(q),false);assert.throws(()=>settleMarket([1],0));assert.throws(()=>settleMarket([16],30));});
+test('exact rational ties use competition ranking and negative totals remain negative',()=>{let scores=[{n:'1',d:'3'},{n:'2',d:'6'},{n:'-5',d:'1'},{n:'0',d:'1'}];assert.deepEqual(rankScores(scores),[1,1,4,3]);assert.deepEqual(addFractions({n:'1',d:'3'},{n:'-1',d:'3'}),{n:'0',d:'1'});});

@@ -1,0 +1,4 @@
+import {randomInt} from 'node:crypto';
+export function validAllocation(a,total,exact=false){return Array.isArray(a)&&a.every(n=>Number.isSafeInteger(n)&&n>=0)&& (exact?a.reduce((s,n)=>s+n,0)===total:a.reduce((s,n)=>s+n,0)<=total);}
+export function chooseProposal(counts,size){let best=Math.max(...counts),t=Math.ceil(.75*size);if(best<t)return -1;let choices=counts.map((n,i)=>n===best?i:-1).filter(i=>i>=0);return choices[randomInt(choices.length)];}
+export function scoreBattle(deployments,values,tie='split'){let scores=deployments.map(()=>0),wins=deployments.map(()=>0);let fields=values.map((value,f)=>{let max=Math.max(...deployments.map(d=>d[f]));let winners=deployments.map((d,i)=>d[f]===max?i:-1).filter(i=>i>=0);let points=winners.length>1&&tie==='none'?0:value/winners.length;for(let i of winners){scores[i]+=points;if(points)wins[i]++;}return {winners,points,troops:deployments.map(d=>d[f])};});return {scores,wins,fields};}

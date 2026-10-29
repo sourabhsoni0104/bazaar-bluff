@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="260" viewBox="0 0 1440 260" preserveAspectRatio="xMidYMax slice">
+<defs>
+<linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9ae62"/><stop offset=".45" stop-color="#a77a4a"/><stop offset="1" stop-color="#1a2040"/></linearGradient>
+<linearGradient id="far" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b5478"/><stop offset="1" stop-color="#141a34"/></linearGradient>
+</defs>
+<!-- distant city -->
+<g fill="url(#far)" opacity=".55">
+<path d="M0 260V196h40v-14h26v14h30v-26c0-12 18-18 18-30 0 12 18 18 18 30v26h44v-20h22v20h38v-34h10v-10h4v10h10v34h50v260z"/>
+<path d="M420 260V200h36v-18c0-10 14-14 14-24 0 10 14 14 14 24v18h52v-26h30v26h60v60zM960 260v-62h44v-30h8v-8h4v8h8v30h56v-18c0-14 20-18 20-32 0 14 20 18 20 32v18h40v62z"/>
+</g>
+<!-- grand mosque -->
+<g fill="url(#stone)">
+<path d="M560 260V170h-6v-8h6v-56c0-6 4-8 4-14 0 6 4 8 4 14v56h6v8h-6v90z"/>
+<path d="M752 260V170h-6v-8h6v-56c0-6 4-8 4-14 0 6 4 8 4 14v56h6v8h-6v90z"/>
+<path d="M590 260v-88h8v-12h124v12h8v88z"/>
+<path d="M602 160c0-40 26-58 58-70 32 12 58 30 58 70z"/>
+<path d="M658 90V74h4v16z"/><path d="M660 56a8 8 0 1 0 6 13 6 6 0 1 1-6-13z"/>
+<path d="M578 196c0-14 14-18 14-28 0 10 14 14 14 28zM714 196c0-14 14-18 14-28 0 10 14 14 14 28z"/>
+<path d="M578 260v-64h28v64zM714 260v-64h28v64z"/>
+</g>
+<g fill="#10142b" opacity=".75"><path d="M620 260v-34a12 12 0 0 1 24 0v34zM676 260v-34a12 12 0 0 1 24 0v34zM650 205v-16a10 10 0 0 1 20 0v16z"/></g>
+<!-- bazaar arcade -->
+<g fill="url(#stone)" opacity=".92">
+<path d="M220 260v-58h210v58z"/><path d="M214 202h222v-8H214z"/>
+<path d="M260 194c0-16 20-20 20-34 0 14 20 18 20 34zM352 194c0-16 20-20 20-34 0 14 20 18 20 34z"/>
+</g>
+<g fill="#10142b" opacity=".8"><path d="M236 260v-30a12 12 0 0 1 24 0v30zM276 260v-30a12 12 0 0 1 24 0v30zM316 260v-30a12 12 0 0 1 24 0v30zM356 260v-30a12 12 0 0 1 24 0v30zM396 260v-30a12 12 0 0 1 24 0v30z"/></g>
+<!-- palms -->
+<g fill="url(#stone)">
+<path d="M150 260c4-34 2-62-6-92l4-1c9 31 11 59 7 93z"/>
+<path d="M146 168c-14-12-34-12-46-2 14-4 28-2 40 6zM146 168c-4-16-20-26-36-24 14 4 24 12 30 26zM146 168c6-16 22-24 38-20-14 2-26 10-32 22zM146 168c16-8 34-4 44 8-14-6-28-6-40-2zM146 168c-16 2-28 14-30 28 6-12 18-20 30-24z"/>
+<path d="M880 260c3-28 1-50-5-74l4-1c7 25 8 47 6 75z"/>
+<path d="M876 186c-12-10-28-10-38-2 12-3 24-1 34 5zM876 186c-3-13-17-21-30-19 12 3 20 10 25 21zM876 186c5-13 18-20 31-17-12 2-21 8-26 18zM876 186c13-7 28-3 36 7-12-5-23-5-33-2z"/>
+</g>
+<!-- tall minaret -->
+<g fill="url(#stone)">
+<path d="M1150 260V92h40v168z"/><path d="M1142 92h56v-8h-56z"/>
+<path d="M1156 84V40h28v44z"/><path d="M1150 40h40v-6h-40z"/>
+<path d="M1160 34c0-14 10-20 10-28 0 8 10 14 10 28z"/><path d="M1169 6V-6h2V6z"/>
+<path d="M1146 150h48v-5h-48z"/>
+</g>
+<g fill="#10142b" opacity=".7"><path d="M1162 130v-14a8 8 0 0 1 16 0v14zM1162 200v-16a8 8 0 0 1 16 0v16zM1164 70v-14a6 6 0 0 1 12 0v14z"/></g>
+<!-- fortress -->
+<g fill="url(#stone)">
+<path d="M1250 260V118h12v-10h12v10h12v-10h12v10h12v-10h12v10h12v-10h12v10h12v142z"/>
+<path d="M1360 260V150h80v110z"/><path d="M1360 150v-10h10v10zm20 0v-10h10v10zm20 0v-10h10v10zm20 0v-10h10v10z"/>
+</g>
+<g fill="#10142b" opacity=".75"><path d="M1276 168v-16a8 8 0 0 1 16 0v16zM1316 168v-16a8 8 0 0 1 16 0v16zM1290 260v-36a14 14 0 0 1 28 0v36zM1388 196v-14a7 7 0 0 1 14 0v14zM1414 196v-14a7 7 0 0 1 14 0v14z"/></g>
+<!-- lit windows -->
+<g fill="#ffd98a"><rect x="1166" y="112" width="3" height="5" rx="1"/><rect x="1288" y="190" width="3" height="5" rx="1"/><rect x="1330" y="196" width="3" height="5" rx="1"/><rect x="657" y="190" width="3" height="5" rx="1"/><rect x="584" y="216" width="3" height="5" rx="1"/><rect x="726" y="220" width="3" height="5" rx="1"/><rect x="300" y="212" width="3" height="4" rx="1"/><rect x="408" y="214" width="3" height="4" rx="1"/></g>
+<rect y="248" width="1440" height="12" fill="#141a34"/>
+</svg>

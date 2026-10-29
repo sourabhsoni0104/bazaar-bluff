@@ -1,0 +1,21 @@
+{
+  "sharedIPTeams": 40,
+  "openSSEConnections": 40,
+  "checks": [
+    "registration",
+    "simultaneous proposals",
+    "locked-entry reconnect",
+    "per-team brute-force throttle",
+    "360px browser layout",
+    "focused input preservation",
+    "no gameplay canvas"
+  ],
+  "contrast": {
+    "#f3ebda on #120d1e": 16.07,
+    "#b0a1c3 on #1d152c": 7.3,
+    "#e8c878 on #1d152c": 10.84,
+    "#291a32 on #e8c878": 10.06
+  },
+  "fontBytes": 120336,
+  "productionVenueTested": false
+}
