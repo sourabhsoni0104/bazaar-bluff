@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes,randomInt,timingSafeEqual} from 'node:crypto';
-import {scoreBattle,chooseProposals,combineShares,validAllocation} from './rules.mjs';
+import {scoreBattle,chooseProposals,combineShares,validAllocation,combineBoards} from './rules.mjs';
 import {createPool,migrate,makeStateStore} from './backend/database.mjs';
 import {createJinnService} from './backend/jinnfire.mjs';
 import {createAuth} from './backend/auth.mjs';
@@ -120,6 +120,7 @@ if(req.method==='POST'&&!/^application\/json\b/i.test(req.headers['content-type'
 if(req.method==='POST')req.parsedBody=await body(req);
 if(url.pathname==='/api/events'){if(streams.size>=5000)return sendJson(res,{error:'Too many live connections'},503);res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});res.write('data: update\n\n');streams.add(res);req.on('close',()=>streams.delete(res));return;}
 req.googleAuth=await googleAuth.identify(req,res);
+if(req.method==='GET'&&url.pathname==='/api/leaderboards'){let [players,open]=await store.read(snapshot=>[snapshot.players.map(({id,userId,name,score})=>({id,userId,name,score})),snapshot.settings.jinnfireOpen===true]);let jinnTotals=jinn&&open?await jinn.standings():[];return sendJson(res,{...combineBoards(players,jinnTotals),jinnfire:!!jinn&&open});}
 if(url.pathname.startsWith('/api/jinn/')){
  let [auth,open,display]=await store.read(snapshot=>{state=snapshot;let who=identity(req);return [who,state.settings.jinnfireOpen===true,player(who?.teamId)?.name];});let result;
  // Jinnfire is the second event: players cannot see or use it until an organiser opens it.

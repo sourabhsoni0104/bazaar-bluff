@@ -149,6 +149,7 @@ assert.equal((await call('/api/profile',{name:'   ',confirm:true},me.cookie)).st
 let renamed=await call('/api/profile',{name:'  Sand   Fox ',confirm:true},me.cookie);assert.equal(renamed.status,200);assert.equal(renamed.body.name,'Sand Fox');
 assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');assert.equal((await state(me.cookie)).nameLocked,true);
 assert.equal((await call('/api/profile',{name:'Again',confirm:true},me.cookie)).status,400,'a locked name cannot be changed');assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');
+let lb=await call('/api/leaderboards');assert.equal(lb.status,200);assert.equal(lb.body.jinnfire,false);assert.equal(lb.body.factor,1);assert.ok(lb.body.rows.some(r=>r.name==='Sand Fox'&&r.combined===r.bazaar));assert.ok(lb.body.rows.every(r=>!('userId' in r)&&!('email' in r)));
 assert.equal((await call('/api/profile',{name:'Nobody'})).status,400);assert.equal((await call('/api/profile',{name:'Boss'},admin)).status,400);
 });
 test('the most-approved proposals pass, and tied leaders are added together',async()=>{

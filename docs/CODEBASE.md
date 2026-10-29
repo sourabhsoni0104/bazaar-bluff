@@ -20,7 +20,7 @@ Stack: plain Node 22 (`http`, no framework) + `pg`, Supabase for Google sign-in 
 | `backend/database.mjs` | Pool, `migrate`, `transaction`, `makeStateStore` (JSONB aggregate store) |
 | `backend/env.mjs` | Maps Vercel/Supabase variable names to `DATABASE_URL` etc. |
 | `api/index.mjs` | Vercel entry; re-exports the `server.mjs` handler |
-| `supabase/migrations/` | Applied in filename order on every cold start (`migrate`); latest is `202610290003_jinnfire_hidden_demand` |
+| `supabase/migrations/` | Applied in filename order on every cold start (`migrate`); latest is `202610290004_jinnfire_score_offsets` |
 | `public/app.js` | Player UI, shell/nav, Bazaar pages, polling, click/submit handlers |
 | `public/platform.js` | Games hub, admin panel (Bazaar tables editor, allowlist, Jinnfire admin), Jinnfire player page |
 | `public/*.css` | `style.css` → `premium.css` → `typography.css` → `platform.css` → `oasis.css`, loaded in that order, later wins |
@@ -44,7 +44,7 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 `public` (not signed in) · `user` (Google, on the allowlist) · `team` (local-dev login only) · `admin` (email in `ADMIN_EMAILS`). Admin is decided only in `roleForUser`. Non-admins must be on `allowedEmails`, checked in the auth callback and again in `identity()`.
 
 ## Routes (server.mjs)
-- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/profile` (player sets their display name once; needs `confirm:true`, then `nameLocked`), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
+- Public/player: `GET /api/state`, `GET /api/leaderboards`, `POST /api/enroll`, `POST /api/profile` (player sets their display name once; needs `confirm:true`, then `nameLocked`), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
 - Jinnfire: `GET /api/jinn/state`, `POST /api/jinn/enroll | submit | control`
 - Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export`
 - Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
@@ -96,6 +96,8 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 - **Allocation inputs** are clamped in the `input` handler in `app.js` to whole numbers between 0 and what is left; the server still rejects anything else (`validAllocation`).
 - **Display names are chosen once.** A player's `nameLocked` is false until they confirm a name (`nameDialog` in `app.js` opens on login, also on `/profile`); `/api/profile` then locks it. Only an organiser (`player-rename`) can change it afterwards. Existing players with `nameLocked` unset are asked once. Jinnfire uses the same name: `enroll` takes it from the Bazaar player and `syncJinnName` (server.mjs) pushes later changes through `jinn.setName`. The Jinnfire admin roster no longer offers Rename.
 - **Jinnfire hidden demand.** `jinn_rounds.demand_hidden` (set with `hideDemand` on `prepare` / `set-demand`) makes `view()` return `round.demand:null` to non-admins until the round is `published`. After publish, `view().result` (`{number,supply,demand,rate,players}`) and `mine.profit` / `mine.total` drive the end-of-round reveal in `jinnPage`/`roundStory` (`platform.js`). Other players' quantities and scores stay private.
+- **Jinnfire points.** `/api/jinn/control` `set-score` (`playerId`, numeric `score`) and `reset-scores` need `confirm:true` and a reason, and are refused while a round is live or settled-but-unpublished. They write `jinn_score_offsets` (migration `…0004`); a player's total is the latest published cumulative profit plus the offset (`totals()` in `jinnfire.mjs`), so round results are never edited and later rounds add on top. Bazaar has its own `player-score` / `reset-scores` in `/api/control`.
+- **Leaderboards page** (`leaderboardsPage` in `app.js`) has three tabs: Bazaar (`leaderTable`), Jinnfire (`boardTable`, ranks only) and Combined. Combined comes from public `GET /api/leaderboards`, fetched only while that tab is open: `combineBoards` in `rules.mjs` multiplies each Jinnfire total by (best Bazaar score ÷ best Jinnfire total), or 1 if either best is not positive, and adds it to the Bazaar score; players are matched by Google account (`userId` = `owner_id`). Jinnfire is left out until it is open to players. Showing combined points lets anyone work out Jinnfire totals.
 - **Jinnfire projector** is the `/jinnfire-display` page (`jinnDisplayPage` in `app.js`), fed by `/api/jinn/state` like the player page; it shows the clock, round status, last-round result and the overall / last-round rank boards.
 - **Jinnfire `remove-player`** only deactivates the row; the player cannot be re-enrolled.
 - **Phases advance on requests**, so on Vercel a due phase moves the next time anyone loads the page. Players polling every 2 s make this effectively immediate.
