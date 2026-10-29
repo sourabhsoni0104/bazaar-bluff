@@ -14,3 +14,5 @@ backups/
 docs/redesign-backup/
 docs/artwork-originals/
 playwright-report/
+.vercel/
+*.crt
