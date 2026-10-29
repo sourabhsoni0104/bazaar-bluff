@@ -61,3 +61,10 @@ assert.equal((await call('/api/state')).body.settings.jinnfireOpen,undefined);
 assert.equal((await call('/api/control',{action:'jinnfire-access',open:true},admin)).status,200);assert.equal((await call('/api/state')).body.settings.jinnfireOpen,true);
 let opened=await call('/api/jinn/state');assert.notEqual(opened.body.locked,true);
 assert.equal((await call('/api/control',{action:'jinnfire-access',open:false},admin)).status,200);assert.deepEqual((await call('/api/jinn/state')).body,{enabled:false,locked:true});});
+test('organisers can remove parties; players cannot',async()=>{
+await call('/api/control',{action:'create',count:2,size:4},admin);let groups=(await call('/api/state',null,admin)).body.groups.filter(g=>!g.demo);let [a,b]=groups.slice(-2);
+let player=await call('/api/demo',{});assert.equal((await call('/api/control',{action:'remove',group:a.id},player.cookie)).status,403);assert.equal((await call('/api/control',{action:'remove',group:a.id})).status,403);
+assert.equal((await call('/api/control',{action:'remove',group:a.id},admin)).status,200);let after=(await call('/api/state',null,admin)).body.groups;assert.ok(!after.some(g=>g.id===a.id));assert.ok(after.some(g=>g.id===b.id));
+await call('/api/control',{action:'create',count:1,size:4},admin);let names=(await call('/api/state',null,admin)).body.groups.map(g=>g.name);assert.equal(new Set(names).size,names.length,'party names stay unique after a removal');
+assert.equal((await call('/api/control',{action:'remove',group:'missing'},admin)).status,400);});
+
