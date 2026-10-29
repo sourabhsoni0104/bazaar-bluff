@@ -143,10 +143,12 @@ auto=await control({action:'auto-seat'});assert.equal(auto.status,200);assert.de
 let before=(await state(admin)).allowedEmails;await seat(more[0].id,null);let after=await state(admin);
 assert.ok(after.players.some(p=>p.id===more[0].id&&!p.table));assert.deepEqual(after.allowedEmails,before);assert.equal((await control({action:'start-round'})).status,400);
 await seat(more[0].id,short.id);assert.equal((await control({action:'start-round'})).status,200);
-// Display names: whitespace is tidied, empty and over-long names are refused, and only signed-in players can change theirs.
-let me=await newPlayer();let renamed=await call('/api/profile',{name:'  Sand   Fox '},me.cookie);assert.equal(renamed.status,200);assert.equal(renamed.body.name,'Sand Fox');
-assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');
-assert.equal((await call('/api/profile',{name:'   '},me.cookie)).status,400);assert.equal((await call('/api/profile',{name:'x'.repeat(61)},me.cookie)).status,400);
+// Display names: chosen once with an explicit confirmation, then locked. Whitespace is tidied, empty and over-long names are refused, and only signed-in players can choose one.
+let me=await newPlayer();assert.equal((await state(me.cookie)).nameLocked,false);assert.equal((await call('/api/profile',{name:'Sand Fox'},me.cookie)).status,400,'confirmation is required');
+assert.equal((await call('/api/profile',{name:'   ',confirm:true},me.cookie)).status,400);assert.equal((await call('/api/profile',{name:'x'.repeat(61),confirm:true},me.cookie)).status,400);
+let renamed=await call('/api/profile',{name:'  Sand   Fox ',confirm:true},me.cookie);assert.equal(renamed.status,200);assert.equal(renamed.body.name,'Sand Fox');
+assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');assert.equal((await state(me.cookie)).nameLocked,true);
+assert.equal((await call('/api/profile',{name:'Again',confirm:true},me.cookie)).status,400,'a locked name cannot be changed');assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');
 assert.equal((await call('/api/profile',{name:'Nobody'})).status,400);assert.equal((await call('/api/profile',{name:'Boss'},admin)).status,400);
 });
 test('the most-approved proposals pass, and tied leaders are added together',async()=>{

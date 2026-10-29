@@ -44,7 +44,7 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 `public` (not signed in) · `user` (Google, on the allowlist) · `team` (local-dev login only) · `admin` (email in `ADMIN_EMAILS`). Admin is decided only in `roleForUser`. Non-admins must be on `allowedEmails`, checked in the auth callback and again in `identity()`.
 
 ## Routes (server.mjs)
-- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/profile` (player changes own display name), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
+- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/profile` (player sets their display name once; needs `confirm:true`, then `nameLocked`), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
 - Jinnfire: `GET /api/jinn/state`, `POST /api/jinn/enroll | submit | control`
 - Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export`
 - Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
@@ -94,7 +94,7 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 - **Most approvals passes; ties add.** No percentage threshold: the proposal(s) with the most approvals pass, tied leaders all pass and each seat's army is the sum of its shares (`combineShares`), and with zero approvals everywhere the fallback army applies. `outcome` is `{counts,winners:[…]}` (older saves had `winner`/`draw`; `results()` still reads them).
 - **Voting is approve-only.** The client sends booleans per proposal; anything not approved (including no vote at all) counts as a rejection at the deadline. A battlefield where nobody sent troops has no winner and scores nothing (`scoreBattle`).
 - **Allocation inputs** are clamped in the `input` handler in `app.js` to whole numbers between 0 and what is left; the server still rejects anything else (`validAllocation`).
-- Display names are changed on the `/profile` page (`profilePage` in `app.js`); Jinnfire keeps its own name for that player.
+- **Display names are chosen once.** A player's `nameLocked` is false until they confirm a name (`nameDialog` in `app.js` opens on login, also on `/profile`); `/api/profile` then locks it. Only an organiser (`player-rename`) can change it afterwards. Existing players with `nameLocked` unset are asked once. Jinnfire uses the same name: `enroll` takes it from the Bazaar player and `syncJinnName` (server.mjs) pushes later changes through `jinn.setName`. The Jinnfire admin roster no longer offers Rename.
 - **Jinnfire hidden demand.** `jinn_rounds.demand_hidden` (set with `hideDemand` on `prepare` / `set-demand`) makes `view()` return `round.demand:null` to non-admins until the round is `published`. After publish, `view().result` (`{number,supply,demand,rate,players}`) and `mine.profit` / `mine.total` drive the end-of-round reveal in `jinnPage`/`roundStory` (`platform.js`). Other players' quantities and scores stay private.
 - **Jinnfire projector** is the `/jinnfire-display` page (`jinnDisplayPage` in `app.js`), fed by `/api/jinn/state` like the player page; it shows the clock, round status, last-round result and the overall / last-round rank boards.
 - **Jinnfire `remove-player`** only deactivates the row; the player cannot be re-enrolled.
