@@ -20,7 +20,7 @@ Stack: plain Node 22 (`http`, no framework) + `pg`, Supabase for Google sign-in 
 | `backend/database.mjs` | Pool, `migrate`, `transaction`, `makeStateStore` (JSONB aggregate store) |
 | `backend/env.mjs` | Maps Vercel/Supabase variable names to `DATABASE_URL` etc. |
 | `api/index.mjs` | Vercel entry; re-exports the `server.mjs` handler |
-| `supabase/migrations/` | Applied in filename order on every cold start (`migrate`) |
+| `supabase/migrations/` | Applied in filename order on every cold start (`migrate`); latest is `202610290003_jinnfire_hidden_demand` |
 | `public/app.js` | Player UI, shell/nav, Bazaar pages, polling, click/submit handlers |
 | `public/platform.js` | Games hub, admin panel (Bazaar tables editor, allowlist, Jinnfire admin), Jinnfire player page |
 | `public/*.css` | `style.css` → `premium.css` → `typography.css` → `platform.css` → `oasis.css`, loaded in that order, later wins |
@@ -95,6 +95,8 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 - **Voting is approve-only.** The client sends booleans per proposal; anything not approved (including no vote at all) counts as a rejection at the deadline. A battlefield where nobody sent troops has no winner and scores nothing (`scoreBattle`).
 - **Allocation inputs** are clamped in the `input` handler in `app.js` to whole numbers between 0 and what is left; the server still rejects anything else (`validAllocation`).
 - Display names are changed on the `/profile` page (`profilePage` in `app.js`); Jinnfire keeps its own name for that player.
+- **Jinnfire hidden demand.** `jinn_rounds.demand_hidden` (set with `hideDemand` on `prepare` / `set-demand`) makes `view()` return `round.demand:null` to non-admins until the round is `published`. After publish, `view().result` (`{number,supply,demand,rate,players}`) and `mine.profit` / `mine.total` drive the end-of-round reveal in `jinnPage`/`roundStory` (`platform.js`). Other players' quantities and scores stay private.
+- **Jinnfire projector** is the `/jinnfire-display` page (`jinnDisplayPage` in `app.js`), fed by `/api/jinn/state` like the player page; it shows the clock, round status, last-round result and the overall / last-round rank boards.
 - **Jinnfire `remove-player`** only deactivates the row; the player cannot be re-enrolled.
 - **Phases advance on requests**, so on Vercel a due phase moves the next time anyone loads the page. Players polling every 2 s make this effectively immediate.
 - Legacy saves with `groups` (the old party model) are ignored by `normalise()` in `server.mjs`.
