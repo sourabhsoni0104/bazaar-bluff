@@ -154,10 +154,22 @@ await control({action:'end'});for(let t of await tables())await control({action:
 for(let p of (await state(admin)).players)await control({action:'player-remove',player:p.id});
 let four=[];for(let i=0;i<4;i++)four.push(await newPlayer());await control({action:'table-create',name:'Tie'});let [t]=await tables();for(let p of four)await seat(p.id,t.id);
 await control({action:'add-round'});assert.equal((await control({action:'start-round'})).status,200);
+let stale=await control({action:'advance',from:'voting'});assert.equal(stale.status,400);assert.match(stale.body.error,/phase changed/);assert.equal((await state(admin)).game.phase,'proposal','a stale confirmation moves nothing');
 let shares=[[400,0,0,0],[0,400,0,0],[100,100,100,100]];for(let [i,p] of four.slice(0,3).entries())assert.equal((await call('/api/entry',{values:shares[i],lock:true},p.cookie)).status,200);
 await control({action:'advance'});
 // Everyone approves both 400-point proposals and rejects the even split: the two leaders tie and both pass.
 for(let p of four){let s=await state(p.cookie);let votes=s.mine.proposals.map(x=>x.shares.includes(400));assert.equal((await call('/api/entry',{values:votes,lock:true},p.cookie)).status,200);}
 await control({action:'advance'});let armies=[];for(let p of four){let s=await state(p.cookie);armies[s.mine.slot]=s.mine.army;assert.equal(s.mine.outcome.winners.length,2);}
 assert.deepEqual(armies,[400,400,0,0]);
+});
+test('organisers can set any player\'s points and reset everyone to zero; players cannot',async()=>{
+await control({action:'end'});for(let t of await tables())await control({action:'table-delete',table:t.id});
+for(let p of (await state(admin)).players)await control({action:'player-remove',player:p.id});
+let [a,b]=[await newPlayer(),await newPlayer()];let scoreOf=async id=>(await state(admin)).players.find(p=>p.id===id).score;
+assert.equal((await control({action:'player-score',player:a.id,score:250.555})).status,200);assert.equal(await scoreOf(a.id),250.56);
+assert.equal((await control({action:'player-score',player:b.id,score:0})).status,200);
+for(let bad of [-1,'12',null,NaN,1e9])assert.equal((await control({action:'player-score',player:a.id,score:bad})).status,400,String(bad));assert.equal((await control({action:'player-score',player:'missing',score:5})).status,400);
+assert.equal((await call('/api/control',{action:'player-score',player:a.id,score:999},a.cookie)).status,403);assert.equal((await call('/api/control',{action:'reset-scores'},a.cookie)).status,403);assert.equal(await scoreOf(a.id),250.56);
+assert.equal((await control({action:'reset-scores'})).status,200);let after=(await state(admin)).players;assert.ok(after.every(p=>p.score===0&&p.wins===0&&p.history.length===0));
+assert.ok((await state(admin)).audit.some(x=>x.action==='reset-scores'));
 });

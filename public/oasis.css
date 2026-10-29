@@ -235,3 +235,5 @@ button.lock-button:focus-visible{outline:3px solid #fff7b0;outline-offset:3px}
 .lock-bar.is-locked button.lock-button{background:transparent;color:#ffe600}
 button.lock-button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 @media(max-width:540px){button.lock-button{flex:1 1 100%}}
+
+.confirm-actions{margin-top:22px;gap:12px}

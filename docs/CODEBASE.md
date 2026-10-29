@@ -50,7 +50,7 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 - Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
 - Auth: `/auth/google`, `/auth/callback`, `/auth/logout` (`backend/auth.mjs`)
 
-`/api/control` actions: `settings, add-round, allow-emails, disallow-email, jinnfire-access, start-round, advance, pause, extend, end, table-create, table-rename, table-delete, seat, auto-seat, player-rename, player-remove`. Table and player edits call `assertEditable()` and fail while a round is running. `auto-seat` tops up tables below 4, opens new tables of 4, then spreads any remainder (up to 5 per table); it returns `{seated,unseated}`.
+`/api/control` actions: `settings, add-round, allow-emails, disallow-email, jinnfire-access, start-round, advance, pause, extend, end, table-create, table-rename, table-delete, seat, auto-seat, player-rename, player-remove, player-score, reset-scores`. Table and player edits call `assertEditable()` and fail while a round is running. `auto-seat` tops up tables below 4, opens new tables of 4, then spreads any remainder (up to 5 per table); it returns `{seated,unseated}`.
 
 ## Where to change common things
 | Want to change | Change this | Notes |

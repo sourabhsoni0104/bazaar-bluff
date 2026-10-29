@@ -78,7 +78,7 @@ else if(a==='allow-emails'){let list=state.allowedEmails||=[],added=0,invalid=[]
 else if(a==='disallow-email'){let e=String(b.email||'').trim().toLowerCase();state.allowedEmails=(state.allowedEmails||[]).filter(x=>x!==e);log(auth.role,'disallow-email',{});broadcast();return json({ok:true});}
 else if(a==='jinnfire-access'){if(typeof b.open!=='boolean')throw Error('Choose whether Jinnfire Exchange is open');state.settings.jinnfireOpen=b.open;log(auth.role,b.open?'jinnfire-opened':'jinnfire-closed',{});broadcast();return json({ok:true,open:b.open});}
 else if(a==='start-round')startRound();
-else if(a==='advance')advanceGame();
+else if(a==='advance'){if(b.from&&b.from!==g.phase)throw Error('The phase changed while you were confirming. Check the new phase and try again.');advanceGame();}
 else if(a==='pause'){if(!g.deadline)throw Error('No timer is running');if(g.paused){g.deadline=Date.now()+g.remaining;g.paused=false;}else{g.remaining=Math.max(0,g.deadline-Date.now());g.paused=true;}}
 else if(a==='extend'){if(!g.deadline)throw Error('No timer is running');if(g.paused)g.remaining+=60000;else g.deadline+=60000;}
 else if(a==='end'){g.phase='finished';g.deadline=null;g.paused=false;}
@@ -93,9 +93,11 @@ let k=Math.floor(left.length/MIN_SEATS),last=Math.max(0,...state.tables.map(t=>N
 for(let t of [...state.tables].reverse())if(left.length&&t.seats.length<MAX_SEATS)put(t);
 if(!placed)throw Error(`Not enough unseated players to fill a table of ${MIN_SEATS}. Seat them by hand or add players.`);extra={seated:placed,unseated:left.length};}
 else if(a==='player-rename'){assertEditable();let p=pick(state.players,b.player,'Player'),name=String(b.name||'').trim();if(name.length<1||name.length>60)throw Error('Use a name of 1–60 characters');p.name=name;}
+else if(a==='player-score'){let p=pick(state.players,b.player,'Player');if(typeof b.score!=='number'||!Number.isFinite(b.score)||b.score<0||b.score>1000000)throw Error('Use a score from 0 to 1,000,000');p.score=Math.round(b.score*100)/100;}
+else if(a==='reset-scores'){for(let p of state.players){p.score=0;p.wins=0;p.history=[];}}
 else if(a==='player-remove'){assertEditable();let p=pick(state.players,b.player,'Player');for(let t of state.tables)t.seats=t.seats.filter(x=>x!==p.id);state.players=state.players.filter(x=>x!==p);}
 else throw Error('Unknown action');
-log(auth.role,a,{table:b.table,player:b.player});broadcast();return json({ok:true,...extra});}
+log(auth.role,a,{table:b.table,player:b.player,score:b.score});broadcast();return json({ok:true,...extra});}
 throw Error('Unknown action');}
 if(url.pathname==='/api/export'){if(auth?.role!=='admin')return json({error:'Organiser access required'},403);log('admin','export',{});save();res.setHeader('Content-Disposition','attachment; filename="war-chest-export.json"');let clean=structuredClone(state);delete clean.sessions;clean.players.forEach(p=>{delete p.userId;});if(!['lobby','battle','between','finished'].includes(state.game.phase))throw Error('Full audit export is available after rounds close');return json(clean);}
 if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
