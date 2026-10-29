@@ -26,7 +26,7 @@ One-time page entrance: 220ms. Button feedback: 160ms. Battle entries reveal bri
 
 ## What the checks establish
 
-Automated checks cover 40 teams joining via one IP, 40 open SSE connections, simultaneous valid proposal submissions, current-state reads and team logins restoring locked entries. They use an isolated local server and temporary state, not the visible event. A successful loopback test does not establish venue Wi-Fi quality, mobile battery usage, multi-instance behavior or production capacity. The report must distinguish local timings from an event guarantee.
+Automated checks cover 40 players signing in via one IP, being seated at ten tables and starting a round together, 40 open SSE connections, simultaneous valid proposal submissions and current-state reads. They use an isolated local server and temporary state, not the visible event. A successful loopback test does not establish venue Wi-Fi quality, mobile battery usage, multi-instance behavior or production capacity. The report must distinguish local timings from an event guarantee.
 
 ## Live-event deployment target
 

@@ -1,0 +1,97 @@
+# Codebase reference
+
+A map of the repo for making changes without re-reading everything. Last checked against the players / tables / synced-rounds rework. Function names are stable; line numbers drift, so search for the name.
+
+## What it is
+Oasis ’26 event platform with two games and one admin panel.
+- **Bazaar Bluff**: players are seated at tables of 3–5, negotiate a 400-point pot, vote, deploy troops on five territories. Rounds are started by the organiser for every table at once.
+- **Jinnfire Exchange**: every player picks a production quantity 0–15; a shared market formula settles profit.
+
+Stack: plain Node 22 (`http`, no framework) + `pg`, Supabase for Google sign-in only, a no-build vanilla JS single-page app, deployed on Vercel (Mumbai) with Supabase Postgres. Everything is minified into very long lines, so edit with exact string replacement, not by line.
+
+## Layout
+| Path | What lives there |
+|---|---|
+| `server.mjs` | Entire Bazaar backend and the HTTP handler: state shape, round engine, `view()`, all `/api/*` routes, admin actions |
+| `rules.mjs` | Pure Bazaar rules: `scoreBattle`, `chooseProposal`, `validAllocation` |
+| `backend/jinnfire.mjs` | Jinnfire service (SQL): `enroll`, `submit`, `control`, `view`, `tick`, `settle` |
+| `backend/jinnfire-rules.mjs` | Pure Jinnfire maths (exact fractions): `settleMarket`, `rankScores`, `validQuantity` |
+| `backend/auth.mjs` | Google sign-in via Supabase (`/auth/*`), `roleForUser`, sign-in allowlist hook |
+| `backend/database.mjs` | Pool, `migrate`, `transaction`, `makeStateStore` (JSONB aggregate store) |
+| `backend/env.mjs` | Maps Vercel/Supabase variable names to `DATABASE_URL` etc. |
+| `api/index.mjs` | Vercel entry; re-exports the `server.mjs` handler |
+| `supabase/migrations/` | Applied in filename order on every cold start (`migrate`) |
+| `public/app.js` | Player UI, shell/nav, Bazaar pages, polling, click/submit handlers |
+| `public/platform.js` | Games hub, admin panel (Bazaar tables editor, allowlist, Jinnfire admin), Jinnfire player page |
+| `public/*.css` | `style.css` → `premium.css` → `typography.css` → `platform.css` → `oasis.css`, loaded in that order, later wins |
+| `tests/` | `node --test`; see Testing |
+| `browser-check.mjs`, `platform-browser-check.mjs`, `visual-check.mjs`, `scripts/browser-qa.mjs` | Playwright checks |
+
+## Data
+- **Bazaar** is one JSONB document: table `game_private.bazaar_state`, row `bazaar-live` (`BAZAAR_STATE_KEY` overrides). Every mutating request runs inside `store.run`, which locks the row, runs the handler, writes back if the JSON changed, then notifies. Shape:
+  - `settings`: pot, rounds, fallback, tie, timers, fields, `jinnfireOpen`
+  - `game`: `{round, phase, deadline, paused, remaining}`; **one global clock**. Phases: `lobby → proposal → voting → results → deployment → battle → between → finished`
+  - `players[]`: `{id, userId, email, name, score, wins, history}`; score lives on the player
+  - `tables[]`: `{id, name, seats:[playerId], proposals, votes, deployments, locks, armies, outcome, battle, archive}`
+  - `allowedEmails[]` (sign-in list), `audit[]`, `sessions{}` (local-dev logins only)
+- **Jinnfire** is relational (`game_private.jinn_*`). `jinn_teams` rows are *players* (name kept for history); `owner_id` is the Google user id. Rounds: `ready → live → settled → published | cancelled`.
+- With no `DATABASE_URL` the Bazaar store falls back to a JSON file (`DATA_FILE`, default `state.json`), used by API tests and local runs. Jinnfire needs Postgres.
+
+## Request flow
+Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (`googleAuth.identify`) → either Jinnfire (`jinn.*`, own transaction) or `store.run(snapshot => {advanceDue(); handleRequest()})`. Responses are buffered until commit. The client polls `/api/state` and `/api/jinn/state` every 2 s (`sync()` in `app.js`) and re-renders when the JSON changes. Phases advance lazily: `advanceDue()` runs on each request (and a 1 s interval when run with `npm start`; **not** on Vercel).
+
+## Roles
+`public` (not signed in) · `user` (Google, on the allowlist) · `team` (local-dev login only) · `admin` (email in `ADMIN_EMAILS`). Admin is decided only in `roleForUser`. Non-admins must be on `allowedEmails`, checked in the auth callback and again in `identity()`.
+
+## Routes (server.mjs)
+- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
+- Jinnfire: `GET /api/jinn/state`, `POST /api/jinn/enroll | submit | control`
+- Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export`
+- Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
+- Auth: `/auth/google`, `/auth/callback`, `/auth/logout` (`backend/auth.mjs`)
+
+`/api/control` actions: `settings, add-round, allow-emails, disallow-email, jinnfire-access, start-round, advance, pause, extend, end, table-create, table-rename, table-delete, seat, auto-seat, player-rename, player-remove`. Table and player edits call `assertEditable()` and fail while a round is running.
+
+## Where to change common things
+| Want to change | Change this | Notes |
+|---|---|---|
+| Pot, rounds, fallback army, tie rule | `settings` in `server.mjs` (defaults) or the `/settings` page | The constant only seeds a **new** save. Live values are stored in the database and edited from the settings page, which locks during a round. |
+| Phase timers (proposal 180 s, voting 120, results 45, deployment 180, battle 60) and battlefield names/values | `settings.timers`, `settings.fields` in `server.mjs` | **Not editable from the UI**, and changing the constant does not affect an existing save. A live change needs a settings action or a one-off edit of the stored JSON. |
+| Seats per table (3–5) | `startRound`, the `seat` action, and `auto-seat` in `server.mjs`; copy in `bazaarAdmin`/`tablesPage` | `chooseProposal` already scales with table size. |
+| Who sees what (Bazaar) | `view()` in `server.mjs` | Proposals only in voting and after; others’ entries never; `email` admin-only; `allowedEmails`/`audit` admin-only. |
+| Who sees what (Jinnfire) | `view()` in `backend/jinnfire.mjs`; open/closed gate in the `/api/jinn/` block of `handler` | Public sees only name + rank. |
+| Sidebar links and who gets them | `shell()` in `app.js` (`nav` array) | Admin links only when `state.role==='admin'`. Hiding a link does not secure a route; the server checks `auth.role`. |
+| Page wording, phase names | `phaseName`, `rulesPage`, `eventPage` in `app.js`; `gamesPage`, `jinnPage` in `platform.js` | |
+| Round length and quantity range (Jinnfire) | `start` in `jinnfire.mjs` (`120000`), `validQuantity` in `jinnfire-rules.mjs`, the `0..15` check in the migration | Also text in `platform.js` and the `120` fallback in `clock()` in `app.js`. |
+| Profit formula | `settleMarket` in `backend/jinnfire-rules.mjs` | Tests in `tests/jinnfire-rules.test.mjs`. |
+| Bazaar scoring | `scoreBattle` / `chooseProposal` in `rules.mjs` | Tests in `tests/rules.test.mjs`. |
+| Limits and rate limits | 1000 players, 100 tables, 5000 emails in `server.mjs`; `rate()` (300/min per IP, 10/min per action) | |
+| Polling speed | `setInterval(...,2000)` at the end of `app.js` | |
+| Colours, spacing, admin layout | `platform.css` (admin, table editor), `oasis.css` (theme, allowlist), `premium.css` | Bump the `?v=` on the link in `public/index.html` and the `platform.js?v=` import in `app.js` so browsers reload. |
+| Add an admin action | New `else if(a==='…')` branch in the `/api/control` block; button in `platform.js`; a test in `tests/api.test.mjs` | Use `assertEditable()` if it edits tables or players. |
+| Add a database column or table | New file in `supabase/migrations/` named `YYYYMMDDNNNN_name.sql` ending with an insert into `schema_migrations` | Never edit an applied migration. |
+
+## Environment
+`.env.example` lists everything. Key ones: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ADMIN_EMAILS`, `SITE_URL`, `ADMIN_PASSWORD` + `ALLOW_LOCAL_ADMIN` (local development only; disabled when `NODE_ENV=production`). Vercel integration names (`BB_POSTGRES_URL` etc.) are mapped in `backend/env.mjs`.
+
+## Commands
+- `npm start`: run locally (http://localhost:3000, admin at `/admin`)
+- `npm test`: all tests. Needs Postgres at `TEST_DATABASE_URL` (default `postgresql:///bazaar_bluff_test?host=/tmp`) for the database suites.
+- `node --test tests/api.test.mjs tests/rules.test.mjs tests/auth.test.mjs tests/jinnfire-rules.test.mjs`: the suites that need **no** database
+- `npm run db:migrate`: apply migrations
+- `npm run test:browser`: Playwright checks (needs Postgres). `browser-check.mjs` (Bazaar) can also run against a file-store server with `BASE_URL`, `QA_ADMIN_PASSWORD` and `CHROMIUM_PATH` set.
+
+## Testing notes
+- `tests/api.test.mjs` spawns `server.mjs` with no database, uses the local test-player login (`/api/demo`) to make players, and drives `/api/control` as the organiser. Copy its helpers (`call`, `newPlayer`, `seat`, `control`) for new Bazaar tests.
+- `tests/jinnfire-database.test.mjs`, `production.test.mjs`, `store.test.mjs`, `privacy-database.test.mjs` need Postgres.
+- Playwright scripts hard-code nothing machine-specific; point `CHROMIUM_PATH` at a local Chromium if the default channel is missing.
+
+## Gotchas
+- **Dense one-line style.** Match it. Prefer exact-string edits; do not reformat a file.
+- **Module-level `state`** in `server.mjs` is reassigned per request (`state=snapshot`). It is safe inside `store.run`/`store.read` callbacks; do not use it across an `await` outside them.
+- **Settings persist.** Defaults in code never overwrite a saved value (see Where to change).
+- **Removing a Bazaar player also removes their email from the allowlist**, otherwise they would re-enroll on the next page load.
+- **Jinnfire `remove-player`** only deactivates the row; the player cannot be re-enrolled.
+- **Phases advance on requests**, so on Vercel a due phase moves the next time anyone loads the page. Players polling every 2 s make this effectively immediate.
+- Legacy saves with `groups` (the old party model) are ignored by `normalise()` in `server.mjs`.
+- Do not commit `.env`, `state.json`, dumps, or screenshots; they are git-ignored or should stay out.

@@ -50,12 +50,12 @@ Use actual organiser emails, not these examples. There is no default Google admi
 
 `/auth/google` starts Supabase OAuth with PKCE. `/auth/callback` exchanges the code server-side and stores the session in HttpOnly cookies. The server verifies the current user on API calls. Cookies are Secure on an HTTPS site and use SameSite=Lax for the OAuth return. `/auth/logout` accepts POST, clears authentication and removes the local session cookie.
 
-Google authenticates a person. Team admission is separate:
+Google authenticates a person, and the sign-in list decides who may play. There are no party codes, PINs or team access codes:
 
-- Bazaar Bluff: the captain enters the party code, existing team name and PIN. The server hashes/checks the PIN and binds the team to that Google account. An account cannot claim a second Bazaar team, and a linked team cannot be claimed by a different account.
-- Jinnfire: the organiser creates a team and receives a high-entropy code once. Only the code hash is stored. The captain enters the code while signed in, binding the Jinnforge to their Google account. Subsequent devices signing in with the same account recover membership automatically.
+- Bazaar Bluff: a signed-in player is enrolled automatically (`POST /api/enroll`) with the name from their Google profile. The organiser seats players at tables in the admin panel. Tables can only be edited between rounds. Removing a player also removes their email from the sign-in list.
+- Jinnfire: each Google account is one player (`jinn_teams` rows, one per `owner_id`; the table keeps its original name). The player is created the first time they open Jinnfire Exchange while it is open (`POST /api/jinn/enroll`). A player who joins after a round has started plays from the next round.
 
-An account can belong to one team in each game. Teams and score histories remain independent.
+An account is one player in each game. Scores and histories remain independent.
 
 ## 5. Production requirements
 
@@ -68,7 +68,7 @@ Before an event, run a database backup with `pg_dump` using a private connection
 ## Verified local checks
 
 - `npm test`: original worked example, 40 shared-IP registrations, existing privacy/phase behavior, Google identity-to-role restrictions, real PostgreSQL rollback/concurrent writes, denied raw-table reads as anon/authenticated, Jinnfire rational arithmetic, both formula examples, missing/late submissions, negative totals, tied ranks and concurrent idempotent settlement.
-- `npm run test:browser`: isolated PostgreSQL fixture server; both admin tabs, creating team codes, separate Jinnfire player join/submission, global pause/resume, settlement/publishing, rank-only results, complete existing Bazaar demo, map interactions and 360px layout. Does not modify the visible event.
+- `npm run test:browser`: isolated PostgreSQL fixture server; both admin tabs, Jinnfire player self-enrolment and submission, global pause/resume, settlement/publishing, rank-only results, Bazaar tables, synced rounds and the table editor, map interactions and 360px layout. Does not modify the visible event.
 
 ## Official references
 
