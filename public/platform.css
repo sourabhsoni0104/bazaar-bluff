@@ -24,3 +24,11 @@
 .table-footer{display:flex;gap:14px;padding:10px 20px 14px;border-top:1px solid #ffffff0d}
 .panel-sub.warn{color:#e3a77c}
 .seat-row select:disabled,.seat-row button:disabled,.table-footer button:disabled{opacity:.45;cursor:not-allowed}
+
+.panel-sub.ok{color:#89bfa6}
+.table-check .table-issues{margin:0;padding:4px 20px 14px 38px;font-size:13px;line-height:1.8;color:#e3a77c}
+.table-check .table-note{margin:0;padding:0 20px 16px}
+.table-check.ok{border-color:#89bfa655}
+.table-footer select{min-height:36px;max-width:100%;padding:6px 10px;border-radius:6px;background:#0a0d1ecc;border:1px solid #f2c55c4d;color:var(--cream);font-size:12px}
+.table-footer select:disabled{opacity:.45;cursor:not-allowed}
+.table-footer{flex-wrap:wrap;align-items:center}

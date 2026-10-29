@@ -52,7 +52,8 @@ await control({action:'advance'});
 let voted=await state(cookies[0]);assert.equal(voted.mine.proposals.length,4);assert.ok(voted.mine.proposals.every(p=>!p.author));assert.ok(!voted.mine.outcome);
 for(let c of cookies)await call('/api/entry',{values:[true,true,true,true],lock:true},c);
 assert.equal((await call('/api/export',null,admin)).status,400);
-await control({action:'advance'});assert.equal((await state(cookies[0])).mine.army,100);
+// Every proposal drew the same approvals, so all four pass and each player's four 100-point shares add up.
+await control({action:'advance'});assert.equal((await state(cookies[0])).mine.army,400);
 await control({action:'advance'});
 await control({action:'pause'});assert.equal((await call('/api/entry',{values:[20,20,20,20,20],lock:true},cookies[0])).status,400);await control({action:'pause'});
 let ds=[[30,30,20,10,10],[20,20,20,20,20],[40,40,20,0,0],[10,10,30,50,0]];
@@ -123,4 +124,40 @@ await seat(crowd[0].id,b.id,3);assert.equal((await control({action:'player-renam
 assert.equal((await control({action:'player-remove',player:p.id})).status,200);assert.ok(!(await state(admin)).players.some(x=>x.id===p.id));
 assert.equal((await control({action:'table-delete',table:b.id})).status,200);assert.ok((await state(admin)).players.filter(x=>crowd.some(c=>c.id===x.id)).every(x=>!x.table));
 let pub=await state();assert.ok(pub.players.every(x=>!('email' in x)));
+});
+test('tables hold four or five players, removing someone from a table only unseats them, and players pick their display name',async()=>{
+await control({action:'end'});for(let t of await tables())await control({action:'table-delete',table:t.id});
+for(let p of (await state(admin)).players)await control({action:'player-remove',player:p.id});
+let six=[];for(let i=0;i<6;i++)six.push(await newPlayer());
+// Six cannot make two tables of four, so auto-seat fills one table of five and leaves one player for the organiser to place.
+let auto=await control({action:'auto-seat'});assert.equal(auto.status,200);assert.deepEqual([auto.body.seated,auto.body.unseated],[5,1]);
+let [first]=await tables();assert.equal(first.seats.length,5);let left=(await state(admin)).players.find(p=>!p.table);
+let full=await control({action:'seat',player:left.id,table:first.id});assert.equal(full.status,400);assert.match(full.body.error,/full/i);
+assert.equal((await control({action:'auto-seat'})).status,400,'nothing to place');
+let more=[];for(let i=0;i<3;i++)more.push(await newPlayer());assert.equal((await control({action:'table-create',name:'Short'})).status,200);let short=(await tables()).find(t=>t.name==='Short');
+for(let p of more)await seat(p.id,short.id);
+await control({action:'add-round'});let tooSmall=await control({action:'start-round'});assert.equal(tooSmall.status,400);assert.match(tooSmall.body.error,/Short has 3 players.*4 or 5/);
+// The one unseated player tops up the short table instead of opening a new one.
+auto=await control({action:'auto-seat'});assert.equal(auto.status,200);assert.deepEqual([auto.body.seated,auto.body.unseated],[1,0]);assert.equal((await tables()).length,2);
+// Removing someone from a table leaves them on the player list (and, for real accounts, the sign-in list).
+let before=(await state(admin)).allowedEmails;await seat(more[0].id,null);let after=await state(admin);
+assert.ok(after.players.some(p=>p.id===more[0].id&&!p.table));assert.deepEqual(after.allowedEmails,before);assert.equal((await control({action:'start-round'})).status,400);
+await seat(more[0].id,short.id);assert.equal((await control({action:'start-round'})).status,200);
+// Display names: whitespace is tidied, empty and over-long names are refused, and only signed-in players can change theirs.
+let me=await newPlayer();let renamed=await call('/api/profile',{name:'  Sand   Fox '},me.cookie);assert.equal(renamed.status,200);assert.equal(renamed.body.name,'Sand Fox');
+assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');
+assert.equal((await call('/api/profile',{name:'   '},me.cookie)).status,400);assert.equal((await call('/api/profile',{name:'x'.repeat(61)},me.cookie)).status,400);
+assert.equal((await call('/api/profile',{name:'Nobody'})).status,400);assert.equal((await call('/api/profile',{name:'Boss'},admin)).status,400);
+});
+test('the most-approved proposals pass, and tied leaders are added together',async()=>{
+await control({action:'end'});for(let t of await tables())await control({action:'table-delete',table:t.id});
+for(let p of (await state(admin)).players)await control({action:'player-remove',player:p.id});
+let four=[];for(let i=0;i<4;i++)four.push(await newPlayer());await control({action:'table-create',name:'Tie'});let [t]=await tables();for(let p of four)await seat(p.id,t.id);
+await control({action:'add-round'});assert.equal((await control({action:'start-round'})).status,200);
+let shares=[[400,0,0,0],[0,400,0,0],[100,100,100,100]];for(let [i,p] of four.slice(0,3).entries())assert.equal((await call('/api/entry',{values:shares[i],lock:true},p.cookie)).status,200);
+await control({action:'advance'});
+// Everyone approves both 400-point proposals and rejects the even split: the two leaders tie and both pass.
+for(let p of four){let s=await state(p.cookie);let votes=s.mine.proposals.map(x=>x.shares.includes(400));assert.equal((await call('/api/entry',{values:votes,lock:true},p.cookie)).status,200);}
+await control({action:'advance'});let armies=[];for(let p of four){let s=await state(p.cookie);armies[s.mine.slot]=s.mine.army;assert.equal(s.mine.outcome.winners.length,2);}
+assert.deepEqual(armies,[400,400,0,0]);
 });

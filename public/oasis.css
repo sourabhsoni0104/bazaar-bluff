@@ -221,3 +221,17 @@ button.primary:hover,.platform-link:hover{box-shadow:0 0 0 1px #12163333 inset,0
 .workspace{padding-bottom:150px}
 .jinn-access{flex-direction:column;align-items:flex-start}
 }
+
+/* Lock-in: one bar that says where you stand, with a bright yellow edge on the button. */
+.lock-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 20px;margin-top:22px;padding:16px 18px;border:1px solid #ffffff1c;border-radius:10px;background:#ffffff08}
+.lock-bar.is-locked{border-color:#89bfa688;background:#89bfa612}
+.lock-status{display:grid;gap:4px;flex:1 1 240px;min-width:0}
+.lock-status b{font-size:13px;letter-spacing:.3px;color:#f3ebda}
+.lock-bar.is-locked .lock-status b{color:#a8d5c9}
+.lock-status span{font-size:12px;line-height:1.6;color:var(--muted)}
+button.lock-button{flex:0 1 auto;min-height:50px;padding:0 28px;border:2px solid #ffe600;border-radius:8px;background:linear-gradient(180deg,#ffe9a8,#f2c55c 55%,#d9a03a);color:#121633;font-weight:800;letter-spacing:.3px;cursor:pointer;box-shadow:0 0 0 3px #ffe60033,0 0 20px #ffe60040;transition:box-shadow .15s,transform .15s}
+button.lock-button:hover:not(:disabled){box-shadow:0 0 0 4px #ffe60055,0 0 28px #ffe60066;transform:translateY(-1px)}
+button.lock-button:focus-visible{outline:3px solid #fff7b0;outline-offset:3px}
+.lock-bar.is-locked button.lock-button{background:transparent;color:#ffe600}
+button.lock-button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@media(max-width:540px){button.lock-button{flex:1 1 100%}}

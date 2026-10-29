@@ -4,7 +4,7 @@ A map of the repo for making changes without re-reading everything. Last checked
 
 ## What it is
 Oasis ’26 event platform with two games and one admin panel.
-- **Bazaar Bluff**: players are seated at tables of 3–5, negotiate a 400-point pot, vote, deploy troops on five territories. Rounds are started by the organiser for every table at once.
+- **Bazaar Bluff**: players are seated at tables of 4 or 5, negotiate a 400-point pot, vote, deploy troops on five territories. Rounds are started by the organiser for every table at once.
 - **Jinnfire Exchange**: every player picks a production quantity 0–15; a shared market formula settles profit.
 
 Stack: plain Node 22 (`http`, no framework) + `pg`, Supabase for Google sign-in only, a no-build vanilla JS single-page app, deployed on Vercel (Mumbai) with Supabase Postgres. Everything is minified into very long lines, so edit with exact string replacement, not by line.
@@ -13,7 +13,7 @@ Stack: plain Node 22 (`http`, no framework) + `pg`, Supabase for Google sign-in 
 | Path | What lives there |
 |---|---|
 | `server.mjs` | Entire Bazaar backend and the HTTP handler: state shape, round engine, `view()`, all `/api/*` routes, admin actions |
-| `rules.mjs` | Pure Bazaar rules: `scoreBattle`, `chooseProposal`, `validAllocation` |
+| `rules.mjs` | Pure Bazaar rules: `scoreBattle`, `chooseProposals`, `combineShares`, `validAllocation` |
 | `backend/jinnfire.mjs` | Jinnfire service (SQL): `enroll`, `submit`, `control`, `view`, `tick`, `settle` |
 | `backend/jinnfire-rules.mjs` | Pure Jinnfire maths (exact fractions): `settleMarket`, `rankScores`, `validQuantity` |
 | `backend/auth.mjs` | Google sign-in via Supabase (`/auth/*`), `roleForUser`, sign-in allowlist hook |
@@ -44,27 +44,27 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 `public` (not signed in) · `user` (Google, on the allowlist) · `team` (local-dev login only) · `admin` (email in `ADMIN_EMAILS`). Admin is decided only in `roleForUser`. Non-admins must be on `allowedEmails`, checked in the auth callback and again in `identity()`.
 
 ## Routes (server.mjs)
-- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
+- Public/player: `GET /api/state`, `POST /api/enroll`, `POST /api/profile` (player changes own display name), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
 - Jinnfire: `GET /api/jinn/state`, `POST /api/jinn/enroll | submit | control`
 - Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export`
 - Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
 - Auth: `/auth/google`, `/auth/callback`, `/auth/logout` (`backend/auth.mjs`)
 
-`/api/control` actions: `settings, add-round, allow-emails, disallow-email, jinnfire-access, start-round, advance, pause, extend, end, table-create, table-rename, table-delete, seat, auto-seat, player-rename, player-remove`. Table and player edits call `assertEditable()` and fail while a round is running.
+`/api/control` actions: `settings, add-round, allow-emails, disallow-email, jinnfire-access, start-round, advance, pause, extend, end, table-create, table-rename, table-delete, seat, auto-seat, player-rename, player-remove`. Table and player edits call `assertEditable()` and fail while a round is running. `auto-seat` tops up tables below 4, opens new tables of 4, then spreads any remainder (up to 5 per table); it returns `{seated,unseated}`.
 
 ## Where to change common things
 | Want to change | Change this | Notes |
 |---|---|---|
 | Pot, rounds, fallback army, tie rule | `settings` in `server.mjs` (defaults) or the `/settings` page | The constant only seeds a **new** save. Live values are stored in the database and edited from the settings page, which locks during a round. |
 | Phase timers (proposal 180 s, voting 120, results 45, deployment 180, battle 60) and battlefield names/values | `settings.timers`, `settings.fields` in `server.mjs` | **Not editable from the UI**, and changing the constant does not affect an existing save. A live change needs a settings action or a one-off edit of the stored JSON. |
-| Seats per table (3–5) | `startRound`, the `seat` action, and `auto-seat` in `server.mjs`; copy in `bazaarAdmin`/`tablesPage` | `chooseProposal` already scales with table size. |
+| Seats per table (4–5) | `MIN_SEATS`/`MAX_SEATS` in `server.mjs` (used by `startRound`, `seat`, `auto-seat`); `MIN`/`MAX` and copy in `bazaarAdmin` (`platform.js`), `tablesPage` | Passing logic does not depend on table size. |
 | Who sees what (Bazaar) | `view()` in `server.mjs` | Proposals only in voting and after; others’ entries never; `email` admin-only; `allowedEmails`/`audit` admin-only. |
 | Who sees what (Jinnfire) | `view()` in `backend/jinnfire.mjs`; open/closed gate in the `/api/jinn/` block of `handler` | Public sees only name + rank. |
 | Sidebar links and who gets them | `shell()` in `app.js` (`nav` array) | Admin links only when `state.role==='admin'`. Hiding a link does not secure a route; the server checks `auth.role`. |
 | Page wording, phase names | `phaseName`, `rulesPage`, `eventPage` in `app.js`; `gamesPage`, `jinnPage` in `platform.js` | |
 | Round length and quantity range (Jinnfire) | `start` in `jinnfire.mjs` (`120000`), `validQuantity` in `jinnfire-rules.mjs`, the `0..15` check in the migration | Also text in `platform.js` and the `120` fallback in `clock()` in `app.js`. |
 | Profit formula | `settleMarket` in `backend/jinnfire-rules.mjs` | Tests in `tests/jinnfire-rules.test.mjs`. |
-| Bazaar scoring | `scoreBattle` / `chooseProposal` in `rules.mjs` | Tests in `tests/rules.test.mjs`. |
+| Bazaar scoring | `scoreBattle` / `chooseProposals` / `combineShares` in `rules.mjs` | Tests in `tests/rules.test.mjs`. |
 | Limits and rate limits | 1000 players, 100 tables, 5000 emails in `server.mjs`; `rate()` (300/min per IP, 10/min per action) | |
 | Polling speed | `setInterval(...,2000)` at the end of `app.js` | |
 | Colours, spacing, admin layout | `platform.css` (admin, table editor), `oasis.css` (theme, allowlist), `premium.css` | Bump the `?v=` on the link in `public/index.html` and the `platform.js?v=` import in `app.js` so browsers reload. |
@@ -90,7 +90,11 @@ Browser `api()` → `/api/*` → `handler` in `server.mjs` → Google identity (
 - **Dense one-line style.** Match it. Prefer exact-string edits; do not reformat a file.
 - **Module-level `state`** in `server.mjs` is reassigned per request (`state=snapshot`). It is safe inside `store.run`/`store.read` callbacks; do not use it across an `await` outside them.
 - **Settings persist.** Defaults in code never overwrite a saved value (see Where to change).
-- **Removing a Bazaar player also removes their email from the allowlist**, otherwise they would re-enroll on the next page load.
+- **Taking a player off a table** is `seat` with `table:null`; they stay a player and on the allowlist. The admin UI no longer offers `player-remove` (it deletes the record but leaves the allowlist, so a signed-in player would re-enroll on the next poll with a zero score).
+- **Most approvals passes; ties add.** No percentage threshold: the proposal(s) with the most approvals pass, tied leaders all pass and each seat's army is the sum of its shares (`combineShares`), and with zero approvals everywhere the fallback army applies. `outcome` is `{counts,winners:[…]}` (older saves had `winner`/`draw`; `results()` still reads them).
+- **Voting is approve-only.** The client sends booleans per proposal; anything not approved (including no vote at all) counts as a rejection at the deadline. A battlefield where nobody sent troops has no winner and scores nothing (`scoreBattle`).
+- **Allocation inputs** are clamped in the `input` handler in `app.js` to whole numbers between 0 and what is left; the server still rejects anything else (`validAllocation`).
+- Display names are changed on the `/profile` page (`profilePage` in `app.js`); Jinnfire keeps its own name for that player.
 - **Jinnfire `remove-player`** only deactivates the row; the player cannot be re-enrolled.
 - **Phases advance on requests**, so on Vercel a due phase moves the next time anyone loads the page. Players polling every 2 s make this effectively immediate.
 - Legacy saves with `groups` (the old party model) are ignored by `normalise()` in `server.mjs`.

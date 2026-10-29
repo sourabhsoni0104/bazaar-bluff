@@ -1,8 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {scoreBattle,chooseProposal,validAllocation} from '../rules.mjs';
+import {scoreBattle,chooseProposals,combineShares,validAllocation} from '../rules.mjs';
 test('PDF worked example scores A0 B100 C900 D500',()=>{assert.deepEqual(scoreBattle([[30,30,20,10,10],[20,20,20,20,20],[40,40,20,0,0],[10,10,30,50,0]],[500,400,300,200,100]).scores,[0,100,900,500]);});
 test('battlefield ties divide points equally',()=>{assert.deepEqual(scoreBattle([[30],[30],[0]],[300]).scores,[150,150,0]);});
 test('no-score tie mode',()=>{assert.deepEqual(scoreBattle([[30],[30]],[300],'none').scores,[0,0]);});
-test('highest approvals wins and fallback when threshold missed',()=>{assert.equal(chooseProposal([3,4,1,1],4),1);assert.equal(chooseProposal([2,2,1,0],4),-1);assert.equal(chooseProposal([3,2,1],3),0);});
+test('the most-approved proposal passes with no threshold, ties all pass, and nothing passes without approvals',()=>{assert.deepEqual(chooseProposals([3,4,1,1]),[1]);assert.deepEqual(chooseProposals([1,0,0,0]),[0]);assert.deepEqual(chooseProposals([2,2,1,0]),[0,1]);assert.deepEqual(chooseProposals([1,1,1]),[0,1,2]);assert.deepEqual(chooseProposals([0,0,0,0]),[]);assert.deepEqual(chooseProposals([]),[]);});
+test('passed proposals add together seat by seat',()=>{assert.deepEqual(combineShares([{shares:[100,100,100,100]},{shares:[400,0,0,0]}],4),[500,100,100,100]);assert.deepEqual(combineShares([{shares:[250,150,0,0]}],4),[250,150,0,0]);});
 test('integer allocation validation',()=>{assert.equal(validAllocation([100,100,100,100],400,true),true); for(const a of [[100.5,99.5,100,100],[-1,201,100,100],[99,100,100,100]])assert.equal(validAllocation(a,400,true),false);assert.equal(validAllocation([10,20],100),true);});
+test('a battlefield nobody sent troops to scores for no one',()=>{let r=scoreBattle([[0,10],[0,0],[0,0]],[300,100]);assert.deepEqual(r.scores,[0,100,0].map((n,i)=>i===0?100:0));assert.deepEqual(r.fields[0].winners,[]);assert.equal(r.fields[0].points,0);for(const tie of ['split','none']){assert.deepEqual(scoreBattle([[0],[0]],[300],tie).scores,[0,0]);assert.deepEqual(scoreBattle([[0],[0]],[300],tie).wins,[0,0]);}});
+test('negative troops can never be offset by a larger share elsewhere',()=>{assert.equal(validAllocation([-50,150],100),false);assert.equal(validAllocation([-50,150],100,true),false);assert.equal(validAllocation([0,0,0],100),true);});
