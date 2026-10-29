@@ -67,4 +67,10 @@ let player=await call('/api/demo',{});assert.equal((await call('/api/control',{a
 assert.equal((await call('/api/control',{action:'remove',group:a.id},admin)).status,200);let after=(await call('/api/state',null,admin)).body.groups;assert.ok(!after.some(g=>g.id===a.id));assert.ok(after.some(g=>g.id===b.id));
 await call('/api/control',{action:'create',count:1,size:4},admin);let names=(await call('/api/state',null,admin)).body.groups.map(g=>g.name);assert.equal(new Set(names).size,names.length,'party names stay unique after a removal');
 assert.equal((await call('/api/control',{action:'remove',group:'missing'},admin)).status,400);});
+test('organisers manage the sign-in list; players and the public cannot see or change it',async()=>{
+let r=await call('/api/control',{action:'allow-emails',emails:' Player.One@Example.com, not-an-email\nplayer.two@example.com;player.one@example.com'},admin);assert.equal(r.status,200);assert.equal(r.body.added,2);assert.deepEqual(r.body.invalid,['not-an-email']);
+let list=(await call('/api/state',null,admin)).body.allowedEmails;assert.ok(list.includes('player.one@example.com')&&list.includes('player.two@example.com'));
+assert.equal((await call('/api/state')).body.allowedEmails,undefined);let player=await call('/api/demo',{});assert.equal((await call('/api/state',null,player.cookie)).body.allowedEmails,undefined);
+assert.equal((await call('/api/control',{action:'allow-emails',emails:'x@example.com'},player.cookie)).status,403);assert.equal((await call('/api/control',{action:'disallow-email',email:'player.one@example.com'})).status,403);
+assert.equal((await call('/api/control',{action:'disallow-email',email:'PLAYER.ONE@example.com'},admin)).status,200);assert.ok(!(await call('/api/state',null,admin)).body.allowedEmails.includes('player.one@example.com'));});
 

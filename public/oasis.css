@@ -166,6 +166,19 @@ button.primary:hover,.platform-link:hover{box-shadow:0 0 0 1px #12163333 inset,0
 .jinn-access{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 24px;margin-bottom:22px;border-color:#f2c55c55}
 .jinn-access.open{border-color:#8fd6c477}
 .jinn-access h3{margin:0 0 6px}
+.allow-list{margin:22px 0}
+.allow-form{display:flex;gap:14px;align-items:flex-end;padding:0 24px 18px}
+.allow-form .field{flex:1;margin:0}
+.allow-form textarea{width:100%;min-height:74px;padding:12px;border:1px solid #f2c55c4d;border-radius:6px;resize:vertical;font:inherit}
+.allow-filter{display:block;width:calc(100% - 48px);margin:0 24px 12px;padding:11px 12px;border:1px solid var(--line);border-radius:6px}
+.allow-emails{list-style:none;margin:0 24px 22px;padding:0;max-height:320px;overflow:auto;border:1px solid var(--line-soft);border-radius:8px}
+.allow-emails li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid #ffffff0d;font-size:13px}
+.allow-emails li:last-child{border-bottom:0}
+.allow-emails li[hidden]{display:none}
+.allow-emails li span{min-width:0;overflow-wrap:anywhere}
+.allow-emails li .ghost{min-height:32px;padding:6px 12px;font-size:11px}
+.allow-list .empty{padding:0 24px 22px}
+@media(max-width:650px){.allow-form{flex-direction:column;align-items:stretch}}
 .platform-links a{color:var(--gold-soft)}
 .platform-tabs button.active{border-color:#f2c55c66;color:var(--gold);background:#f2c55c12}
 .access-code{background:#0a0d1ecc;border-color:#f2c55c88;color:var(--gold)}
