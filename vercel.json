@@ -5,7 +5,7 @@
   "functions": {
     "api/index.mjs": {
       "maxDuration": 30,
-      "includeFiles": "supabase/migrations/**"
+      "includeFiles": "supabase/**"
     }
   },
   "rewrites": [

@@ -1,1 +1,2 @@
+import '../backend/env.mjs';
 import {createPool,migrate} from '../backend/database.mjs';const pool=createPool();if(!pool)throw Error('Set DATABASE_URL in .env first');try{await migrate(pool);console.log('Database migration applied.');}finally{await pool.end();}
