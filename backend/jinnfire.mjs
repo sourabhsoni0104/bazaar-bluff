@@ -2,7 +2,8 @@ import {transaction} from './database.mjs';
 import {settleMarket,rankScores,addFractions,fraction,decimalString,validQuantity} from './jinnfire-rules.mjs';
 const score=r=>({n:String(r.cumulative_num),d:String(r.cumulative_den)});
 const roundScore=r=>({n:String(r.profit_num),d:String(r.profit_den)});
-const safeRows=(rows,scores)=>{let ranks=rankScores(scores);return rows.map((r,i)=>({rank:ranks[i],name:r.name})).sort((a,b)=>a.rank-b.rank||a.name.localeCompare(b.name));};
+// Public board rows: rank, name and profit (the round's on the round board, the running total on the overall one). Quantities stay private.
+const safeRows=(rows,scores)=>{let ranks=rankScores(scores);return rows.map((r,i)=>({rank:ranks[i],name:r.name,points:decimalString(scores[i])})).sort((a,b)=>a.rank-b.rank||a.name.localeCompare(b.name));};
 const outcome=(q,n)=>q===0?'No production':BigInt(n)>0n?'Net profit':BigInt(n)<0n?'Net loss':'Break-even';
 export async function createJinnService(pool,{eventName='Jinnfire Exchange'}={}){
 const eventId=await transaction(pool,async c=>{await c.query('select pg_advisory_xact_lock(73829102)');let {rows:[e]}=await c.query('select id from game_private.jinn_events where name=$1 order by created_at limit 1',[eventName]);if(!e)({rows:[e]}=await c.query('insert into game_private.jinn_events(name) values($1) returning id',[eventName]));return e.id;});
