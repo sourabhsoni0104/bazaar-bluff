@@ -77,6 +77,7 @@ let moved=await state(cookies[2]);assert.equal(moved.mine.slot,0);
 assert.deepEqual(moved.mine.battle.scores,[0,100,900,500]);assert.equal(moved.mine.battle.slot,2);assert.equal(moved.mine.battle.seats.length,4);assert.equal(moved.players.find(p=>p.id===players[2].id).score,900);
 assert.equal((await control({action:'start-round'})).status,200);let next=await state(cookies[0]);assert.equal(next.game.round,2);assert.equal(next.game.phase,'proposal');assert.equal(next.players.find(p=>p.id===players[1].id).score,100);
 assert.ok(JSON.parse(readFileSync(path.join(dir,'state.json'))).game.round===2);
+let midRound=await control({action:'reset-event',confirm:true});assert.equal(midRound.status,400);assert.match(midRound.body.error,/End the current round/);
 });
 test('40 players at ten tables start each round together and can reconnect',{timeout:30000},async()=>{
 // Finish the previous test's round so tables can be rebuilt.
@@ -196,4 +197,9 @@ for(let bad of [-1,'12',null,NaN,1e9])assert.equal((await control({action:'playe
 assert.equal((await call('/api/control',{action:'player-score',player:a.id,score:999},a.cookie)).status,403);assert.equal((await call('/api/control',{action:'reset-scores'},a.cookie)).status,403);assert.equal(await scoreOf(a.id),250.56);
 assert.equal((await control({action:'reset-scores'})).status,200);let after=(await state(admin)).players;assert.ok(after.every(p=>p.score===0&&p.wins===0&&p.history.length===0));
 assert.ok((await state(admin)).audit.some(x=>x.action==='reset-scores'));
+// After a rehearsal the organiser can take the whole event back to round 1; tables and seats stay.
+await control({action:'table-create',name:'Kept'});let [t]=await tables();await seat(a.id,t.id);let before=await state(admin);assert.ok(before.game.round>0);
+assert.equal((await call('/api/control',{action:'reset-event',confirm:true},a.cookie)).status,403);assert.equal((await control({action:'reset-event'})).status,400,'needs confirm');
+await control({action:'end'});
+assert.equal((await control({action:'reset-event',confirm:true})).status,200);let fresh=await state(admin);assert.deepEqual([fresh.game.round,fresh.game.phase],[0,'lobby']);assert.ok(fresh.players.every(p=>p.score===0&&!p.history.length));assert.deepEqual(fresh.highlights,[]);assert.ok(fresh.tables.some(x=>x.seats.some(s=>s.id===a.id)),'seats stay');assert.equal(fresh.players.length,before.players.length);
 });
