@@ -72,7 +72,9 @@ await seat(players[1].id,b.id);await seat(players[3].id,b.id);
 assert.equal((await control({action:'start-round'})).status,400,'Alpha is empty');
 await seat(players[0].id,a.id);await seat(players[1].id,a.id);await seat(players[2].id,a.id,0);
 assert.equal((await control({action:'table-delete',table:b.id})).status,200);await seat(players[3].id,a.id);
-let moved=await state(cookies[2]);assert.equal(moved.mine.slot,0);assert.equal(moved.players.find(p=>p.id===players[2].id).score,900);
+let moved=await state(cookies[2]);assert.equal(moved.mine.slot,0);
+// The last round's recap keeps the seats it was played with, whatever the reseating.
+assert.deepEqual(moved.mine.battle.scores,[0,100,900,500]);assert.equal(moved.mine.battle.slot,2);assert.equal(moved.mine.battle.seats.length,4);assert.equal(moved.players.find(p=>p.id===players[2].id).score,900);
 assert.equal((await control({action:'start-round'})).status,200);let next=await state(cookies[0]);assert.equal(next.game.round,2);assert.equal(next.game.phase,'proposal');assert.equal(next.players.find(p=>p.id===players[1].id).score,100);
 assert.ok(JSON.parse(readFileSync(path.join(dir,'state.json'))).game.round===2);
 });
@@ -149,7 +151,7 @@ assert.equal((await call('/api/profile',{name:'   ',confirm:true},me.cookie)).st
 let renamed=await call('/api/profile',{name:'  Sand   Fox ',confirm:true},me.cookie);assert.equal(renamed.status,200);assert.equal(renamed.body.name,'Sand Fox');
 assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');assert.equal((await state(me.cookie)).nameLocked,true);
 assert.equal((await call('/api/profile',{name:'Again',confirm:true},me.cookie)).status,400,'a locked name cannot be changed');assert.equal((await state(admin)).players.find(p=>p.id===me.id).name,'Sand Fox');
-let lb=await call('/api/leaderboards');assert.equal(lb.status,200);assert.equal(lb.body.jinnfire,false);assert.equal(lb.body.factor,1);assert.ok(lb.body.rows.some(r=>r.name==='Sand Fox'&&r.combined===r.bazaar));assert.ok(lb.body.rows.every(r=>!('userId' in r)&&!('email' in r)));
+let lb=await call('/api/leaderboards');assert.equal(lb.status,200);assert.equal(lb.body.jinnfire,false);assert.equal(lb.body.swing,0.25);assert.ok(lb.body.rows.some(r=>r.name==='Sand Fox'&&r.multiplier===1&&r.combined===r.bazaar));assert.ok(lb.body.rows.every(r=>!('userId' in r)&&!('email' in r)));
 assert.equal((await call('/api/profile',{name:'Nobody'})).status,400);assert.equal((await call('/api/profile',{name:'Boss'},admin)).status,400);
 });
 test('the most-approved proposals pass, and tied leaders are added together',async()=>{
@@ -164,6 +166,25 @@ await control({action:'advance'});
 for(let p of four){let s=await state(p.cookie);let votes=s.mine.proposals.map(x=>x.shares.includes(400));assert.equal((await call('/api/entry',{values:votes,lock:true},p.cookie)).status,200);}
 await control({action:'advance'});let armies=[];for(let p of four){let s=await state(p.cookie);armies[s.mine.slot]=s.mine.army;assert.equal(s.mine.outcome.winners.length,2);}
 assert.deepEqual(armies,[400,400,0,0]);
+});
+test('unfinished proposals are completed evenly, and a table of five plays for 5/4 of the points',async()=>{
+await control({action:'end'});for(let t of await tables())await control({action:'table-delete',table:t.id});
+for(let p of (await state(admin)).players)await control({action:'player-remove',player:p.id});
+let five=[];for(let i=0;i<5;i++)five.push(await newPlayer());await control({action:'table-create',name:'Five'});let [t]=await tables();for(let p of five)await seat(p.id,t.id);
+await control({action:'add-round'});assert.equal((await control({action:'start-round'})).status,200);
+// Drafts below the pot save, but only the whole pot can be locked in.
+assert.equal((await call('/api/entry',{values:[300,0,0,0,0],lock:true},five[0].cookie)).status,400);
+assert.equal((await call('/api/entry',{values:[300,0,0,0,0],lock:false},five[0].cookie)).status,200);
+assert.equal((await call('/api/entry',{values:[500,0,0,0,0],lock:false},five[0].cookie)).status,400,'never more than the pot');
+assert.equal((await call('/api/entry',{values:[10,0,0,0,0],lock:false},five[1].cookie)).status,200);
+assert.equal((await call('/api/entry',{values:[0,0,0,0,0],lock:false},five[1].cookie)).status,200,'an emptied draft withdraws the proposal');
+await control({action:'advance'});let s=await state(five[0].cookie);assert.equal(s.mine.proposals.length,1);assert.deepEqual(s.mine.proposals[0].shares,[320,20,20,20,20]);
+for(let p of five)assert.equal((await call('/api/entry',{values:[true],lock:true},p.cookie)).status,200);
+await control({action:'advance'});await control({action:'advance'});
+for(let [i,p] of five.entries()){let v=[0,0,0,0,0];v[i]=i?20:320;assert.equal((await call('/api/entry',{values:v,lock:true},p.cookie)).status,200);}
+await control({action:'advance'});let b=await state(five[0].cookie);assert.equal(b.mine.battle.scale,1.25);assert.deepEqual(b.mine.battle.scores,[625,500,375,250,125]);
+await control({action:'advance'});assert.equal((await control({action:'table-delete',table:t.id})).status,200);
+assert.ok((await state(admin)).highlights.some(h=>h.text.includes('(Five, round')),'a deleted table keeps its history');
 });
 test('organisers can set any player\'s points and reset everyone to zero; players cannot',async()=>{
 await control({action:'end'});for(let t of await tables())await control({action:'table-delete',table:t.id});
