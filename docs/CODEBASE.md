@@ -49,7 +49,7 @@ Load savers: `googleAuth.identify` (`auth.mjs`) reuses a confirmed identity for 
 ## Routes (server.mjs)
 - Public/player: `GET /api/state`, `GET /api/leaderboards`, `POST /api/enroll`, `POST /api/profile` (player sets their display name once; needs `confirm:true`, then `nameLocked`), `POST /api/entry`, `GET /api/events` (SSE), `GET /api/health`
 - Jinnfire: `GET /api/jinn/state`, `POST /api/jinn/enroll | submit | control`
-- Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export`
+- Admin: `POST /api/control` (all organiser actions, switch on `b.action`), `GET /api/export` (full JSON record; mid-round the running round's entries are blanked), `GET /api/export/scores.csv` (`scoreSheet()`: rank, player, email, table, total, territories, one column per closed round from the archives), `GET /api/jinn/export.csv` (`jinn.exportSheet()`: quantity and profit per published round, adjustment, total). CSV goes through `csv()`, which adds a BOM and prefixes formula-like text with `'`. Admin links carry `data-download`; the click handler in `app.js` fetches them and shows errors as a toast instead of navigating to raw JSON.
 - Local dev only: `POST /api/admin/login`, `POST /api/demo`, `POST /api/logout`
 - Auth: `/auth/google`, `/auth/callback`, `/auth/logout` (`backend/auth.mjs`)
 

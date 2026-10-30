@@ -39,6 +39,10 @@ const streams=new Set();
 let subscriber;if(pool&&isMain){subscriber=await pool.connect();await subscriber.query('listen bazaar_updates');subscriber.on('notification',()=>{for(let r of streams)r.write('data: update\n\n');});subscriber.on('error',e=>console.error('Database notifications disconnected:',e.message));}
 function broadcast(){save();for(const res of streams)res.write('data: update\n\n');}
 function shuffle(a){for(let i=a.length-1;i>0;i--){let j=randomInt(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+// Spreadsheet downloads: a BOM so Excel reads UTF-8, and text cells that could start a formula get a leading ' (players type their own names).
+const csv=rows=>'\ufeff'+rows.map(r=>r.map(v=>{if(v==null)return '';let s=typeof v==='number'?String(v):String(v).replace(/^[=+\-@\t\r]/,"'$&");return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(',')).join('\r\n')+'\r\n';
+const download=(res,name,type,body)=>{res.writeHead(200,{'Content-Type':type,'Content-Disposition':`attachment; filename="${name}"`,'Cache-Control':'no-store'});res.end(body);};
+const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 function equal(total,n){let a=Array(n).fill(Math.floor(total/n));a[n-1]+=total%n;return a;}
 const player=pid=>state.players.find(p=>p.id===pid);
 const tableOf=pid=>state.tables.find(t=>t.seats.includes(pid));
@@ -53,6 +57,10 @@ else if(g.phase==='voting'){for(let t of state.tables){let counts=t.proposals.ma
 else if(g.phase==='results')enter('deployment');
 else if(g.phase==='deployment'){for(let t of state.tables){for(let [i,pid] of t.seats.entries())if(!t.deployments[pid])t.deployments[pid]=equal(t.armies[i],5);let scale=t.seats.length/MIN_SEATS;t.battle={...scoreBattle(t.seats.map(pid=>t.deployments[pid]),s.fields.map(f=>f.value*scale),s.tie),scale};t.seats.forEach((pid,i)=>{let p=player(pid);p.score+=t.battle.scores[i];p.wins+=t.battle.wins[i];p.history.push(t.battle.scores[i]);});t.archive.push({round:g.round,seats:[...t.seats],proposals:structuredClone(t.proposals),votes:structuredClone(t.votes),deployments:structuredClone(t.deployments),outcome:t.outcome,battle:t.battle});}enter('battle');}
 else{g.phase=g.round>=s.rounds?'finished':'between';g.deadline=null;g.paused=false;log('server','phase',{phase:g.phase,round:g.round});}}
+// Score history: one row per player in leaderboard order. Each round column is what they scored that round (from the closed-round archive), blank if they sat it out.
+function scoreSheet(){let byPlayer=new Map(),rounds=new Set(),r2=n=>Math.round(n*100)/100;for(let t of [...state.tables,...state.pastTables||[]])for(let a of t.archive||[]){rounds.add(a.round);a.seats.forEach((pid,i)=>{if(!byPlayer.has(pid))byPlayer.set(pid,new Map());byPlayer.get(pid).set(a.round,a.battle?.scores?.[i]??0);});}
+let cols=[...rounds].sort((a,b)=>a-b),players=[...state.players].sort((a,b)=>b.score-a.score||b.wins-a.wins||(b.history.at(-1)||0)-(a.history.at(-1)||0));
+return [['Rank','Player','Email','Table','Total points','Territories won',...cols.map(n=>`Round ${n}`)],...players.map((p,i)=>[i+1,p.name,p.email||'',tableOf(p.id)?.name||'',r2(p.score),p.wins,...cols.map(n=>{let v=byPlayer.get(p.id)?.get(n);return v==null?'':r2(v);})])];}
 function identity(req){let token=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('wc_session='))?.slice(11);let local=token&&Object.hasOwn(state.sessions,token)?state.sessions[token]:null;if(local?.expiresAt&&local.expiresAt<Date.now())local=null;if(req.googleAuth){if(req.googleAuth.role!=='admin'&&!allowedEmail(req.googleAuth.email))return null;return {...req.googleAuth,teamId:state.players.find(p=>p.userId===req.googleAuth.userId)?.id};}return allowLocal?local:null;}
 
 function view(auth){let g=state.game,me=player(auth?.teamId),t=me&&tableOf(me.id),admin=auth?.role==='admin',reveal=['results','deployment','battle','between','finished'].includes(g.phase),done=['battle','between','finished'].includes(g.phase);let seatOf=new Map(state.tables.flatMap(t=>t.seats.map(pid=>[pid,t.id])));let seat=pid=>{let {id,name,score,wins,history}=player(pid);return {id,name,score,wins,history};};
@@ -105,7 +113,10 @@ else if(a==='player-remove'){assertEditable();let p=pick(state.players,b.player,
 else throw Error('Unknown action');
 log(auth.role,a,{table:b.table,player:b.player,score:b.score,...a==='reset-event'?extra:{}});broadcast();return json({ok:true,...extra});}
 throw Error('Unknown action');}
-if(url.pathname==='/api/export'){if(auth?.role!=='admin')return json({error:'Organiser access required'},403);log('admin','export',{});save();res.setHeader('Content-Disposition','attachment; filename="war-chest-export.json"');let clean=structuredClone(state);delete clean.sessions;clean.players.forEach(p=>{delete p.userId;});if(!['lobby','battle','between','finished'].includes(state.game.phase))throw Error('Full audit export is available after rounds close');return json(clean);}
+if(url.pathname==='/api/export/scores.csv'){if(auth?.role!=='admin')return json({error:'Organiser access required'},403);return download(res,`bazaar-bluff-scores-${today()}.csv`,'text/csv; charset=utf-8',csv(scoreSheet()));}
+if(url.pathname==='/api/export'){if(auth?.role!=='admin')return json({error:'Organiser access required'},403);log('admin','export',{});save();res.setHeader('Content-Disposition',`attachment; filename="bazaar-bluff-export-${today()}.json"`);let clean=structuredClone(state);delete clean.sessions;clean.players.forEach(p=>{delete p.userId;});
+// Mid-round the record holds closed rounds only: this round's proposals, votes and troops stay secret until it closes.
+if(['proposal','voting','results','deployment'].includes(state.game.phase))for(let t of clean.tables)Object.assign(t,{proposals:[],votes:{},deployments:{},locks:{},armies:[],outcome:null});return json(clean);}
 if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
 let name;try{name=url.pathname==='/'||!path.extname(url.pathname)?'index.html':decodeURIComponent(url.pathname);}catch{return json({error:'Not found'},404);}
 let file=path.join(root,'public',name);if(!file.startsWith(path.join(root,'public')+path.sep)||!fs.statSync(file,{throwIfNoEntry:false})?.isFile())return json({error:'Not found'},404);let mime={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp','.woff2':'font/woff2','.ttf':'font/ttf','.txt':'text/plain; charset=utf-8'};res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream'});fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res);
@@ -134,6 +145,7 @@ if(url.pathname.startsWith('/api/jinn/')){
  await jinn.tick();if(req.method==='GET'&&url.pathname==='/api/jinn/state')result=await jinn.view(auth);
  else if(req.method==='POST'&&url.pathname==='/api/jinn/control')result=await jinn.control(auth,req.parsedBody);
  else if(req.method==='POST'&&url.pathname==='/api/jinn/submit')result=await jinn.submit(auth,req.parsedBody.quantity);
+ else if(req.method==='GET'&&url.pathname==='/api/jinn/export.csv'){if(auth?.role!=='admin')return sendJson(res,{error:'Organiser access required'},403);return download(res,`jinnfire-results-${today()}.csv`,'text/csv; charset=utf-8',csv(await jinn.exportSheet()));}
  else if(req.method==='POST'&&url.pathname==='/api/jinn/enroll'){if(!auth||auth.role==='admin')throw Error('Sign in to play Jinnfire Exchange');rate(req,'jinn-enroll',auth.userId||auth.jinnTeamId);let playerId=await jinn.enroll({...auth,name:display||auth.name},{allowLocal});if(!auth.userId&&auth.jinnTeamId!==playerId){let buffered=bufferResponse(res);await store.run(snapshot=>{state=snapshot;session(buffered,{...auth,role:'team',jinnTeamId:playerId});});buffered.writeHead(200,{'Content-Type':'application/json'});buffered.end(JSON.stringify({ok:true}));buffered.flush();return;}result={ok:true};}
  else return sendJson(res,{error:'Unknown Jinnfire endpoint'},404);
  for(let stream of streams)if(req.method==='POST')stream.write('data: update\n\n');return sendJson(res,result);

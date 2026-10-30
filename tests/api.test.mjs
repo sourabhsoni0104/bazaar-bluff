@@ -51,7 +51,7 @@ let av=await state(admin);assert.ok(!av.mine&&!JSON.stringify(av).includes('"pro
 await control({action:'advance'});
 let voted=await state(cookies[0]);assert.equal(voted.mine.proposals.length,4);assert.ok(voted.mine.proposals.every(p=>!p.author));assert.ok(!voted.mine.outcome);
 for(let c of cookies)await call('/api/entry',{values:[true,true,true,true],lock:true},c);
-assert.equal((await call('/api/export',null,admin)).status,400);
+let midExport=await call('/api/export',null,admin);assert.equal(midExport.status,200);assert.ok(midExport.body.tables.every(t=>!t.proposals.length&&!Object.keys(t.votes).length),'the running round stays secret in the export');
 // Every proposal drew the same approvals, so all four pass and each player's four 100-point shares add up.
 await control({action:'advance'});assert.equal((await state(cookies[0])).mine.army,400);
 await control({action:'advance'});
@@ -60,6 +60,8 @@ let ds=[[30,30,20,10,10],[20,20,20,20,20],[40,40,20,0,0],[10,10,30,50,0]];
 for(let [i,c] of cookies.entries())await call('/api/entry',{values:ds[i],lock:true},c);
 let beforeBattle=await state(cookies[1]);assert.ok(!beforeBattle.mine.battle);
 await control({action:'advance'});let battle=await state(cookies[0]);assert.deepEqual(battle.mine.battle.scores,[0,100,900,500]);assert.deepEqual(battle.tables[0].seats.map(s=>s.score),[0,100,900,500]);
+let sheet=await fetch(base+'/api/export/scores.csv',{headers:{Cookie:admin}});assert.equal(sheet.status,200);assert.match(sheet.headers.get('content-disposition'),/bazaar-bluff-scores-\d{4}-\d\d-\d\d\.csv/);let lines=(await sheet.text()).replace(/^\ufeff/,'').trim().split('\r\n');
+assert.equal(lines[0],'Rank,Player,Email,Table,Total points,Territories won,Round 1');assert.equal(lines.length,5);assert.match(lines[1],/^1,.+,Alpha table,900,\d+,900$/);assert.equal((await fetch(base+'/api/export/scores.csv',{headers:{Cookie:cookies[0]}})).status,403);
 let exported=await call('/api/export',null,admin);assert.equal(exported.status,200);assert.ok(!exported.body.sessions);assert.ok(!JSON.stringify(exported.body).includes('userId'));
 // The round closes and waits for the organiser: nothing starts the next round by itself.
 await control({action:'advance'});let between=await state(cookies[0]);assert.equal(between.game.phase,'between');assert.equal(between.game.deadline,null);assert.equal(between.game.round,1);assert.ok(between.mine.battle,'last round stays visible while waiting');
@@ -197,6 +199,8 @@ for(let bad of [-1,'12',null,NaN,1e9])assert.equal((await control({action:'playe
 assert.equal((await call('/api/control',{action:'player-score',player:a.id,score:999},a.cookie)).status,403);assert.equal((await call('/api/control',{action:'reset-scores'},a.cookie)).status,403);assert.equal(await scoreOf(a.id),250.56);
 assert.equal((await control({action:'reset-scores'})).status,200);let after=(await state(admin)).players;assert.ok(after.every(p=>p.score===0&&p.wins===0&&p.history.length===0));
 assert.ok((await state(admin)).audit.some(x=>x.action==='reset-scores'));
+// Names are typed by players, so a name that looks like a formula is exported as text.
+await control({action:'player-rename',player:a.id,name:'=HYPERLINK("x")'});assert.ok((await (await fetch(base+'/api/export/scores.csv',{headers:{Cookie:admin}})).text()).includes(`"'=HYPERLINK(""x"")"`));
 // After a rehearsal the organiser can wipe the event: players, tables and rounds go, the sign-in list stays.
 await control({action:'table-create',name:'Kept'});let [t]=await tables();await seat(a.id,t.id);let before=await state(admin);assert.ok(before.game.round>0);
 assert.equal((await call('/api/control',{action:'reset-event',confirm:true},a.cookie)).status,403);assert.equal((await control({action:'reset-event'})).status,400,'needs confirm');
