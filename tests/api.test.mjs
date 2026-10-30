@@ -197,9 +197,12 @@ for(let bad of [-1,'12',null,NaN,1e9])assert.equal((await control({action:'playe
 assert.equal((await call('/api/control',{action:'player-score',player:a.id,score:999},a.cookie)).status,403);assert.equal((await call('/api/control',{action:'reset-scores'},a.cookie)).status,403);assert.equal(await scoreOf(a.id),250.56);
 assert.equal((await control({action:'reset-scores'})).status,200);let after=(await state(admin)).players;assert.ok(after.every(p=>p.score===0&&p.wins===0&&p.history.length===0));
 assert.ok((await state(admin)).audit.some(x=>x.action==='reset-scores'));
-// After a rehearsal the organiser can take the whole event back to round 1; tables and seats stay.
+// After a rehearsal the organiser can wipe the event: players, tables and rounds go, the sign-in list stays.
 await control({action:'table-create',name:'Kept'});let [t]=await tables();await seat(a.id,t.id);let before=await state(admin);assert.ok(before.game.round>0);
 assert.equal((await call('/api/control',{action:'reset-event',confirm:true},a.cookie)).status,403);assert.equal((await control({action:'reset-event'})).status,400,'needs confirm');
 await control({action:'end'});
-assert.equal((await control({action:'reset-event',confirm:true})).status,200);let fresh=await state(admin);assert.deepEqual([fresh.game.round,fresh.game.phase],[0,'lobby']);assert.ok(fresh.players.every(p=>p.score===0&&!p.history.length));assert.deepEqual(fresh.highlights,[]);assert.ok(fresh.tables.some(x=>x.seats.some(s=>s.id===a.id)),'seats stay');assert.equal(fresh.players.length,before.players.length);
+await control({action:'allow-emails',emails:'kept@example.com'});let wiped=await control({action:'reset-event',confirm:true});assert.equal(wiped.status,200);assert.deepEqual([wiped.body.players,wiped.body.tables],[before.players.length,before.tables.length]);
+let fresh=await state(admin);assert.deepEqual([fresh.game.round,fresh.game.phase],[0,'lobby']);assert.deepEqual([fresh.players,fresh.tables,fresh.highlights],[[],[],[]]);assert.ok(fresh.allowedEmails.includes('kept@example.com'));assert.equal(fresh.settings.jinnfireOpen,false);assert.ok(fresh.audit.some(x=>x.action==='reset-event'));
+// A player still signed in starts again from nothing.
+assert.equal((await state(a.cookie)).teamId,undefined);
 });

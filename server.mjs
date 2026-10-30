@@ -98,11 +98,12 @@ if(!placed)throw Error(`Not enough unseated players to fill a table of ${MIN_SEA
 else if(a==='player-rename'){assertEditable();let p=pick(state.players,b.player,'Player'),name=String(b.name||'').trim();if(name.length<1||name.length>60)throw Error('Use a name of 1–60 characters');p.name=name;await syncJinnName(p);}
 else if(a==='player-score'){let p=pick(state.players,b.player,'Player');if(typeof b.score!=='number'||!Number.isFinite(b.score)||b.score<0||b.score>1000000)throw Error('Use a score from 0 to 1,000,000');p.score=Math.round(b.score*100)/100;}
 else if(a==='reset-scores'){for(let p of state.players){p.score=0;p.wins=0;p.history=[];}}
-// Back to round 0 after a rehearsal: scores and round history go; players, names, the sign-in list, tables, seats, settings and the audit log stay.
-else if(a==='reset-event'){if(running(g.phase))throw Error('End the current round before resetting the event');if(b.confirm!==true)throw Error('Confirm the event reset');state.game={round:0,phase:'lobby',deadline:null,paused:false,remaining:0};for(let p of state.players){p.score=0;p.wins=0;p.history=[];}for(let t of state.tables)Object.assign(t,{proposals:[],votes:{},deployments:{},locks:{},armies:[],outcome:null,battle:null,archive:[]});state.pastTables=[];}
+// A clean start after a rehearsal: every Bazaar player, table and round goes, Jinnfire is wiped and closed again. The sign-in list, settings and audit logs stay;
+// anyone still signed in comes back as a new player with 0 points and picks a display name again.
+else if(a==='reset-event'){if(running(g.phase))throw Error('End the current round before resetting the event');if(b.confirm!==true)throw Error('Confirm the event reset');extra={players:state.players.length,tables:state.tables.length,jinnfirePlayers:jinn?await jinn.wipe(auth):0};state.game={round:0,phase:'lobby',deadline:null,paused:false,remaining:0};state.players=[];state.tables=[];state.pastTables=[];state.settings.jinnfireOpen=false;}
 else if(a==='player-remove'){assertEditable();let p=pick(state.players,b.player,'Player');for(let t of state.tables)t.seats=t.seats.filter(x=>x!==p.id);state.players=state.players.filter(x=>x!==p);}
 else throw Error('Unknown action');
-log(auth.role,a,{table:b.table,player:b.player,score:b.score});broadcast();return json({ok:true,...extra});}
+log(auth.role,a,{table:b.table,player:b.player,score:b.score,...a==='reset-event'?extra:{}});broadcast();return json({ok:true,...extra});}
 throw Error('Unknown action');}
 if(url.pathname==='/api/export'){if(auth?.role!=='admin')return json({error:'Organiser access required'},403);log('admin','export',{});save();res.setHeader('Content-Disposition','attachment; filename="war-chest-export.json"');let clean=structuredClone(state);delete clean.sessions;clean.players.forEach(p=>{delete p.userId;});if(!['lobby','battle','between','finished'].includes(state.game.phase))throw Error('Full audit export is available after rounds close');return json(clean);}
 if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
