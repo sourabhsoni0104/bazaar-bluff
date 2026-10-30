@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {scoreBattle,chooseProposals,combineShares,validAllocation,combineBoards} from '../rules.mjs';
+import {scoreBattle,chooseProposals,combineShares,validAllocation,combineBoards,highlights} from '../rules.mjs';
 test('PDF worked example scores A0 B100 C900 D500',()=>{assert.deepEqual(scoreBattle([[30,30,20,10,10],[20,20,20,20,20],[40,40,20,0,0],[10,10,30,50,0]],[500,400,300,200,100]).scores,[0,100,900,500]);});
 test('battlefield ties divide points equally',()=>{assert.deepEqual(scoreBattle([[30],[30],[0]],[300]).scores,[150,150,0]);});
 test('no-score tie mode',()=>{assert.deepEqual(scoreBattle([[30],[30]],[300],'none').scores,[0,0]);});
@@ -12,3 +12,6 @@ test('negative troops can never be offset by a larger share elsewhere',()=>{asse
 test('combined board scales Jinnfire so the best total matches the best Bazaar score',()=>{let bazaar=[{id:'1',userId:'a',name:'Ann',score:1000},{id:'2',userId:'b',name:'Bo',score:400},{id:'3',userId:'c',name:'Cy',score:0}],jinn=[{userId:'a',total:20},{userId:'b',total:50},{userId:'c',total:-10}];
 let {factor,rows}=combineBoards(bazaar,jinn);assert.equal(factor,20);assert.deepEqual(rows.map(r=>[r.name,r.bazaar,r.jinnfire,r.combined,r.rank]),[['Bo',400,1000,1400,1],['Ann',1000,400,1400,1],['Cy',0,-200,-200,3]].sort((a,b)=>b[3]-a[3]||a[0].localeCompare(b[0])));
 assert.deepEqual(combineBoards(bazaar,[]).rows.map(r=>r.combined),[1000,400,0]);assert.equal(combineBoards(bazaar,[]).factor,1);assert.equal(combineBoards([{id:'1',name:'Solo',score:0}],[{userId:'x',total:5}]).factor,1);});
+test('highlights pick the closest finishes, vote drama and the race at the top',()=>{let fields=[{name:'Citadel',value:500},{name:'Harbour',value:400},{name:'Ridge',value:300}],values=fields.map(f=>f.value),seats=['a','b','c','d'],deployments=[[50,30,20],[49,10,20],[0,10,20],[1,50,40]],battle=scoreBattle(deployments,values),players=[{id:'a',name:'Asha',score:battle.scores[0]},{id:'b',name:'Bo',score:battle.scores[1]},{id:'c',name:'Cy',score:0},{id:'d',name:'Dee',score:battle.scores[3]}],tables=[{name:'Table 01',seats,archive:[{round:1,seats,proposals:[{author:'a'},{author:'b'}],outcome:{counts:[3,2],winners:[0]},battle}]}];
+let h=highlights(tables,players,fields);assert.ok(h.length>0&&h.length<=5);assert.match(h[0].text,/Asha took Citadel by 1 troop, 50 to 49/);assert.ok(h.some(x=>x.kind==='vote'&&/Asha's proposal passed by a single approval, 3 to 2/.test(x.text)));assert.ok(h.some(x=>x.kind==='lead'));assert.equal(highlights([{name:'T',seats,archive:[]}],players.map(p=>({...p,score:0})),fields).length,0);
+let none=highlights([{name:'T',seats,archive:[{round:2,proposals:[],outcome:{counts:[0,0],winners:[]},battle}]}],[],fields);assert.ok(none.some(x=>/Nobody approved/.test(x.text)));assert.ok(highlights(tables,players,fields,2).length<=2);});
